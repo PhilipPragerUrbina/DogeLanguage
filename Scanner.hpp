@@ -13,9 +13,12 @@
 //object that represents null
 struct null_object{};
 
+//forward declarations
 class Callable;
 class Interpreter;
 class Environment;
+
+//Pointer type
 struct Reference{
     Reference(std::string name, Environment* env){
         m_name = name   ;
@@ -25,6 +28,8 @@ struct Reference{
     Environment* m_env = nullptr;
     std::string m_name;
 };
+
+
 //generic object with all supported types
 typedef std::variant<int, float, std::string, bool, null_object, Callable,Reference> object;
 
@@ -32,7 +37,7 @@ typedef std::variant<int, float, std::string, bool, null_object, Callable,Refere
 typedef object (*callPointer)( Interpreter* ,std::vector<object>);
 class FunctionStatement;
 
-
+//function type
 struct Callable {
 public:
     Callable(int args, callPointer func,  FunctionStatement* declaration = nullptr){
@@ -43,6 +48,8 @@ public:
     int m_argument_number;
     callPointer m_call;
 };
+
+
 enum TokenType {
     //single tokens
     LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
