@@ -61,7 +61,11 @@ public:
         return 0;
     }
     object visitReturnStatement(ReturnStatement *statement){
-        createNode("return ", {statement->m_value});
+        if(statement->m_value != nullptr){
+            createNode("return ", {statement->m_value});
+        }else{
+            createNode("return ", {});
+        }
         return 0;
     }
     object visitLogicExpression(Logic *expression){

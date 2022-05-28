@@ -24,9 +24,10 @@ public:
         return new_env;
     }
     //return true if already defined
-    bool define(std::string name, object value){
+    bool define(std::string name, object value, bool constant = false){
         if (m_values.find(name) == m_values.end() ) {
             m_values[name] = value;
+            m_constants[name] = constant;
             return false;
         }
         return true;
@@ -41,7 +42,9 @@ public:
         return true;
     }
 
-
+    bool isConst(std::string name){
+        return m_constants[name];
+    }
 
     object getValue(std::string name){
         if (m_values.find(name) == m_values.end() ) {
@@ -71,6 +74,7 @@ private:
     //TODO test performance here
     //could be faster?
     std::unordered_map<std::string,object> m_values;
+    std::unordered_map<std::string,bool> m_constants;
     //could be more memory efficient but slower?
    // std::map<std::string,object> m_values;
 };

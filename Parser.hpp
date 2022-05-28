@@ -42,6 +42,10 @@ private:
         if(m_tokens[m_current].type == END){return false;}
         return m_tokens[m_current].type == type;
     }
+    //TODO proper line number errors during runtime
+    int getLine(){
+        return m_tokens[m_current-1].line;
+    }
     Token consume(TokenType type, std::string message) {
         if (check(type)) {m_current++; return m_tokens[m_current-1];}else{
             m_error_handler->error(m_tokens[m_current].line, message);
@@ -52,10 +56,27 @@ private:
     //grammar functions
 
     Statement* declaration(){
+        if(match({HASH})){return importDeclaration();}
         if(match({VAR})){return variableDeclaration();}
+        if(match({CONST})){   if(match({VAR})){return variableDeclaration(true);}}
         if(match({CLASS})){return classDeclaration();}
         return statement();
     }
+    Statement* importDeclaration(){
+        if(match({IMPORT})){
+            Token name = consume(IDENTIFIER, "Expected import name");
+            consume(SEMICOLON, "Expected ; after import");
+            return new ImportStatement(name);
+        }
+        else if(match({INCLUDE})){
+            Expression* directory = expression();
+            consume(SEMICOLON, "Expected ; after include");
+            return new IncludeStatement(directory);
+        }
+        m_error_handler->error("Expected imports");
+        return nullptr;
+    }
+
     Statement* classDeclaration(){
         Token name = consume(IDENTIFIER, "Expected class name");
         consume(LEFT_BRACE, "Expected { after parameters");
@@ -64,7 +85,7 @@ private:
     }
 
 
-    Statement* variableDeclaration(){
+    Statement* variableDeclaration(bool constant = false){
         Token name = consume(IDENTIFIER, "Expected variable name");
         if(check(LEFT_PAREN)){return functionDeclaration(name);}
 
@@ -73,7 +94,7 @@ private:
             initializer = expression();
         }
         consume(SEMICOLON, "Expected ; after expression");
-        return new VariableStatement(initializer, name);
+        return new VariableStatement(initializer, name,constant);
     }
     Statement* functionDeclaration(Token name){
 
@@ -95,11 +116,16 @@ private:
     Statement* statement(){
         if(match({IF})){return  ifStatement();}
         if(match({RETURN})){return  returnStatement();}
+        if(match({BREAK})){return  loopStatement();}
+        if(match({CONTINUE})){return  loopStatement();}
         if(match({WHILE})){return  whileStatement();}
         if(match({FOR})){return  forStatement();}
         if (match({LEFT_BRACE})) return new BlockStatement(block());
         return expressionStatement();
     }
+
+
+
     Statement* ifStatement(){
         consume(LEFT_PAREN, "Expected ( after if");
         Expression* condition = expression();
@@ -112,13 +138,15 @@ private:
         }
         return new IfStatement(condition,then_statement,else_statement);
     }
+    //is in loop?
+    int m_loop = 0;
     Statement* whileStatement(){
         consume(LEFT_PAREN, "Expected ( after if");
         Expression* condition = expression();
         consume(RIGHT_PAREN, "Expected ) after conditional");
-
+        m_loop++;
         Statement* body = statement();
-
+        m_loop--;
         return new WhileStatement(condition,body);
     }
     Statement* forStatement(){
@@ -150,8 +178,15 @@ private:
         consume(RIGHT_BRACE, "Expected } after block");
 
         return statements;
+    }   //TODO make proper statements for break and continue.
+    Statement* loopStatement(){
+        if(m_loop == 0){
+            m_error_handler->error(m_tokens[m_current-1].line, "Break called not in loop");
+        }
+        Token keyword = m_tokens[m_current-1];
+        consume(SEMICOLON, "Expected ; after expression");
+        return new ReturnStatement(keyword, nullptr);
     }
-
     Statement* returnStatement(){
         Token keyword = m_tokens[m_current-1];
         Expression* right = nullptr;
@@ -172,6 +207,7 @@ private:
     Expression* expression(){
         return assignment();
     }
+
     Expression* assignment(){
         Expression* left = or_();
         if(match({EQUAL})){

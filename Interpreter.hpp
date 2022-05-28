@@ -8,6 +8,9 @@
 #include "Environment.hpp"
 #include <chrono>
 
+
+
+
 class Interpreter : public Visitor{
 public:
     //main
@@ -15,8 +18,6 @@ public:
         m_error_handler = error_handler;
         m_environment = new Environment();
         m_top = m_environment;
-        createStandardLibrary();
-
         for(Statement* statement:statements){
             statement->accept(this);
         }
@@ -26,6 +27,15 @@ public:
 
 
     //statements
+    object visitImportStatement(ImportStatement *statement){
+        if(statement->m_name.original == "SL"){
+            createStandardLibrary(m_environment);
+        }
+        return null_object();
+    }
+
+
+
     object visitClassStatement(ClassStatement *statement) {
         Class new_class(statement->m_name.original, new Environment(m_environment));
         executeBlock(statement->m_members,new_class.m_environment, false);
@@ -48,10 +58,16 @@ public:
         }
         return out;
     }
+
     object visitWhileStatement(WhileStatement* statement){
         object out = null_object();
         while(isTruthy(eval(statement->m_condition))){
             out = statement->m_body->accept(this);
+            //TODO fix break and continue
+            if(m_break){
+                m_break = false;
+                return out;
+            }
             //could also use goto rather than c loop,
             //but it ends up the exact same
         }
@@ -60,6 +76,10 @@ public:
 
     object visitReturnStatement(ReturnStatement *statement){
         object value = null_object();
+        if(statement->m_keyword.original == "break"){
+            m_break = true;
+            return null_object();
+        }
         if(statement->m_value!= nullptr){
             value = eval(statement->m_value);
         }
@@ -74,7 +94,7 @@ public:
         if(statement->m_initializer != nullptr){
             value = eval(statement->m_initializer);
         }
-        if(m_environment->define(statement->m_name.original,value)){m_error_handler->error("Variable undefined: " + statement->m_name.original);};
+        if(m_environment->define(statement->m_name.original,value,statement->m_constant)){m_error_handler->error("Variable undefined: " + statement->m_name.original);};
         return null_object();
     }
 
@@ -123,7 +143,11 @@ public:
 
     object visitAssignExpression(Assign* expression){
         object value = eval(expression->m_value);
-        if(expression->m_pointer){
+
+        if(m_environment->isConst(expression->m_name.original)){
+            m_error_handler->error("Runtime Error: attempt to write constant");
+        }
+        else if(expression->m_pointer){
             Reference ref = std::get<Reference>(m_environment->getValue(expression->m_name.original));
             if(!ref.m_env->assign(ref.m_name,value)){m_error_handler->error("Pointer undefined: " + expression->m_name.original);};
         }
@@ -227,6 +251,7 @@ private:
     ErrorHandler* m_error_handler;
     //last used class object for function scoping
     ClassObject m_last_class{ Class("")};
+    bool m_break = false;
     object eval(Expression* expression){
         return expression->accept(this);
     }
@@ -313,42 +338,55 @@ private:
         m_error_handler->error("Runtime error: cannot convert to string");
         return "";
     }
-    //Standard Library
-    void createStandardLibrary(){
-        m_environment->define("language",  Callable(0,[](Interpreter* runtime, std::vector<object> args) {
+
+
+
+
+
+
+
+//Standard Library
+    static void createStandardLibrary(Environment* env){
+        env->define("language",  Callable(0,[](Interpreter* runtime, std::vector<object> args) {
             return object(std::string("DogeScript " + std::string(DOGE_LANGUAGE_VERSION)));
         }));
 
-        m_environment->define("poop",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
+        //useful function
+        env->define("poop",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
             std::string a = runtime->getString(args[0]);
             return object(std::string("This " + a + " is poop"));
         }));
 
-        m_environment->define("print",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
+        env->define("print",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
             std::string out = runtime->getString(args[0]);
             std::cout << out << "\n";
             return object(null_object());
         }));
 
-        m_environment->define("input",  Callable(0,[](Interpreter* runtime, std::vector<object> args) {
+        env->define("input",  Callable(0,[](Interpreter* runtime, std::vector<object> args) {
             std::string input = "";
             std::cin >> input;
             return object(input);
         }));
 
-        m_environment->define("toInt",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
+        env->define("toInt",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
             return object(runtime->getInt(args[0]));
         }));
 
-        m_environment->define("seconds",  Callable(0,[](Interpreter* runtime, std::vector<object> args) {
+        env->define("seconds",  Callable(0,[](Interpreter* runtime, std::vector<object> args) {
             auto  time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
             return object((float)time/ 1000.0f);
         }));
     }
-
-
-
-
 };
+
+
+
+
+
+
+
+
+
 
 #endif PROGRAM_INTERPRETER_HPP

@@ -82,7 +82,7 @@ enum TokenType {
     IDENTIFIER, STRING, INTEGER, FLOATING,
     //words.
     AND, CLASS, ELSE, FALSE, FOR, IF, NIL, OR,
-    RETURN, SUPER, THIS, TRUE, VAR, WHILE,REFERENCE,
+    RETURN, SUPER, THIS, TRUE, VAR, WHILE,REFERENCE,CONST,BREAK, CONTINUE,HASH,IMPORT, INCLUDE,
     //end of file
     END
 };
@@ -122,8 +122,10 @@ public:
         m_keywords[ "null_object" ] = NIL;
         m_keywords[ "or" ] = OR;
         m_keywords[ "return" ] = RETURN;
+        m_keywords[ "break" ] = BREAK;
+        m_keywords[ "continue" ] = CONTINUE;
         m_keywords[ "super" ] = SUPER;
-
+        m_keywords[ "const" ] = CONST;
         m_keywords[ "true" ] = TRUE;
         m_keywords[ "var" ] = VAR;
         //alternative vars
@@ -134,6 +136,8 @@ public:
         m_keywords[ "float" ] = VAR;
         m_keywords[ "string" ] = VAR;
         m_keywords[ "while" ] = WHILE;
+        m_keywords[ "include" ] = INCLUDE;
+        m_keywords[ "import" ] = IMPORT;
     }
 
     //scan text to create tokens
@@ -210,6 +214,7 @@ public:
                 switch (character) {
                     //single character
                     case '(': addToken(LEFT_PAREN); break;
+                    case '#': addToken(HASH); break;
                     case ')': addToken(RIGHT_PAREN); break;
                     case '{': addToken(LEFT_BRACE); break;
                     case '}': addToken(RIGHT_BRACE); break;
@@ -254,6 +259,8 @@ public:
     }
     //get tokens
     std::vector<Token> getTokens(){return m_tokens;}
+
+
 private:
     //error handler
     ErrorHandler* m_error_handler;

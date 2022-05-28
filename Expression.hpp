@@ -28,6 +28,9 @@ class Pointer;
 class ClassStatement;
 class Get;
 class Set;
+class ImportStatement;
+class IncludeStatement;
+
 //using visitor pattern
 class Visitor {
 public:
@@ -47,6 +50,8 @@ public:
     virtual object visitCallExpression(Call* expression){return 0;};
     virtual object visitReturnStatement(ReturnStatement* statement){return 0;};
     virtual object visitClassStatement(ClassStatement* statement){return 0;};
+    virtual object visitImportStatement(ImportStatement* statement){return 0;};
+    virtual object visitIncludeStatement(IncludeStatement* statement){return 0;};
     virtual object visitPointerExpression(Pointer* expression){return 0;}
     virtual object visitGetExpression(Get* expression){return 0;}
     virtual object visitSetExpression(Set* expression){return 0;}
@@ -163,14 +168,15 @@ public:
 };
 class Variable : public Expression {
 public:
-    Variable(Token name) {
+    Variable(Token name, bool constant = false) {
         m_name = name;
+        m_constant = constant;
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitVariableExpression(this);
     }
-
+    bool m_constant;
     Token m_name;
 };
 class Pointer : public Expression {
@@ -192,12 +198,14 @@ public:
         m_name = name;
         m_value = value;
         m_pointer = pointer;
+
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitAssignExpression(this);
     }
     bool m_pointer;
+
     Token m_name;
     Expression* m_value;
 
@@ -281,18 +289,41 @@ public:
     Expression* m_expression;
 };
 
+class ImportStatement : public Statement {
+public:
+    ImportStatement(Token name) {
+        m_name = name;
+    }
+
+    object accept(Visitor* visitor) {
+        return visitor->visitImportStatement(this);
+    }
+    Token m_name;
+};
+class IncludeStatement : public Statement {
+public:
+    IncludeStatement(Expression* name) {
+        m_name = name;
+    }
+
+    object accept(Visitor* visitor) {
+        return visitor->visitIncludeStatement(this);
+    }
+    Expression* m_name;
+};
 
 class VariableStatement : public Statement {
 public:
-    VariableStatement(Expression* initializer, Token name) {
+    VariableStatement(Expression* initializer, Token name, bool constant) {
         m_initializer = initializer;
         m_name = name;
+        m_constant = constant;
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitVariableStatement(this);
     }
-
+    bool m_constant;
     Expression* m_initializer;
     Token m_name;
 };
