@@ -1,3 +1,4 @@
+#define DOGE_LANGUAGE_VERSION "v0.2"
 
 #include <iostream>
 
@@ -15,7 +16,7 @@ int main(int argc, char* args[]) {
 
     //show starting message
     Color::start(BLUE);
-    std::cout << "Welcome to DogeScript \n";
+    std::cout << "Using DogeLang " << DOGE_LANGUAGE_VERSION << " \n";
     Color::end();
 
     //default file

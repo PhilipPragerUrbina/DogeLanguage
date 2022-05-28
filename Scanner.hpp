@@ -9,7 +9,7 @@
 #include <variant>
 #include "ErrorHandler.hpp"
 
-
+//types
 //object that represents null
 struct null_object{};
 
@@ -17,7 +17,6 @@ struct null_object{};
 class Callable;
 class Interpreter;
 class Environment;
-
 //Pointer type
 struct Reference{
     Reference(std::string name, Environment* env){
@@ -29,9 +28,27 @@ struct Reference{
     std::string m_name;
 };
 
+struct Class {
+public:
+    Class(std::string name = "",Environment* environment = nullptr){
+        m_name = name;
+        m_environment = environment;
 
+    }
+    std::string m_name;
+    Environment* m_environment;
+};
+struct ClassObject {
+public:
+    ClassObject(Class class_, Environment* environment = nullptr){
+        m_class = class_;
+        m_environment = environment;
+    }
+    Class m_class;
+    Environment* m_environment;
+};
 //generic object with all supported types
-typedef std::variant<int, float, std::string, bool, null_object, Callable,Reference> object;
+typedef std::variant<int, float, std::string, bool, null_object, Callable,Reference,Class, ClassObject> object;
 
 //function pointer
 typedef object (*callPointer)( Interpreter* ,std::vector<object>);
@@ -48,6 +65,8 @@ public:
     int m_argument_number;
     callPointer m_call;
 };
+
+
 
 
 enum TokenType {
@@ -104,7 +123,7 @@ public:
         m_keywords[ "or" ] = OR;
         m_keywords[ "return" ] = RETURN;
         m_keywords[ "super" ] = SUPER;
-        m_keywords[ "this" ] = THIS;
+
         m_keywords[ "true" ] = TRUE;
         m_keywords[ "var" ] = VAR;
         //alternative vars

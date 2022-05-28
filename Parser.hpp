@@ -53,9 +53,28 @@ private:
 
     Statement* declaration(){
         if(match({VAR})){return variableDeclaration();}
+        if(match({CLASS})){return classDeclaration();}
         return statement();
     }
+    Statement* classDeclaration(){
+        Token name = consume(IDENTIFIER, "Expected class name");
+        consume(LEFT_BRACE, "Expected { after parameters");
+        statementList body = block();
+        return new ClassStatement(name,body);
+    }
 
+
+    Statement* variableDeclaration(){
+        Token name = consume(IDENTIFIER, "Expected variable name");
+        if(check(LEFT_PAREN)){return functionDeclaration(name);}
+
+        Expression* initializer = nullptr;
+        if(match({EQUAL})){
+            initializer = expression();
+        }
+        consume(SEMICOLON, "Expected ; after expression");
+        return new VariableStatement(initializer, name);
+    }
     Statement* functionDeclaration(Token name){
 
         consume(LEFT_PAREN, "Expected ( after function");
@@ -72,19 +91,6 @@ private:
         statementList body = block();
         return new FunctionStatement(name, parameters,body);
     };
-
-
-    Statement* variableDeclaration(){
-        Token name = consume(IDENTIFIER, "Expected variable name");
-        if(check(LEFT_PAREN)){return functionDeclaration(name);}
-
-        Expression* initializer = nullptr;
-        if(match({EQUAL})){
-            initializer = expression();
-        }
-        consume(SEMICOLON, "Expected ; after expression");
-        return new VariableStatement(initializer, name);
-    }
 
     Statement* statement(){
         if(match({IF})){return  ifStatement();}
@@ -179,6 +185,10 @@ private:
 
                 return new Assign(right,ptr->m_variable->m_name, true);
             }
+            else if (Get* obj = dynamic_cast<Get*>(left)){
+
+                return new Set(right,obj->m_name, obj->m_object);
+            }
             m_error_handler->error(m_tokens[m_current-1].line, "Assignment error");
         }
         return left;
@@ -252,7 +262,11 @@ private:
         Expression* left = primary();
         while(true){
             if(match({LEFT_PAREN})){
-            left = callFinalize(left);
+            left = callFinalize(left);}
+            else if(match({DOT})){
+                Token name = consume(IDENTIFIER,
+                                     "Expected property name");
+                left = new Get(left,name);
             }else{
                 break;
             }

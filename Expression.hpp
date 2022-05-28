@@ -25,6 +25,9 @@ class Call;
 class FunctionStatement;
 class ReturnStatement;
 class Pointer;
+class ClassStatement;
+class Get;
+class Set;
 //using visitor pattern
 class Visitor {
 public:
@@ -43,7 +46,10 @@ public:
     virtual object visitWhileStatement(WhileStatement* statement){return 0;};
     virtual object visitCallExpression(Call* expression){return 0;};
     virtual object visitReturnStatement(ReturnStatement* statement){return 0;};
+    virtual object visitClassStatement(ClassStatement* statement){return 0;};
     virtual object visitPointerExpression(Pointer* expression){return 0;}
+    virtual object visitGetExpression(Get* expression){return 0;}
+    virtual object visitSetExpression(Set* expression){return 0;}
 };
 
 //base class
@@ -85,6 +91,21 @@ public:
     Expression* m_callee;
     Token m_paren;
     std::vector<Expression*> m_arguments;
+};
+
+class Get : public Expression {
+public:
+    Get(Expression* class_object, Token name) {
+        m_object = class_object;
+        m_name = name;
+    }
+
+    object accept(Visitor* visitor) {
+        return visitor->visitGetExpression(this);
+    }
+
+    Expression* m_object;
+    Token m_name;
 };
 class Logic : public Expression {
 public:
@@ -181,7 +202,22 @@ public:
     Expression* m_value;
 
 };
+class Set : public Expression {
+public:
+    Set(Expression* value, Token name, Expression* obj) {
+        m_name = name;
+        m_value = value;
+        m_obj = obj;
+    }
 
+    object accept(Visitor* visitor) {
+        return visitor->visitSetExpression(this);
+    }
+    Expression* m_obj;
+    Token m_name;
+    Expression* m_value;
+
+};
 //statements
 
 class Statement {
@@ -219,7 +255,19 @@ public:
     Token m_name;
     std::vector<Token> m_parameters;
 };
+class ClassStatement : public Statement {
+public:
+    ClassStatement(Token name, std::vector<Statement*> members) {
+        m_name = name;
+        m_members = members;
+    }
 
+    object accept(Visitor* visitor) {
+        return visitor->visitClassStatement(this);
+    }
+    Token m_name;
+    std::vector<Statement*> m_members;
+};
 
 class ExpressionStatement : public Statement {
 public:

@@ -26,6 +26,12 @@ public:
 
 
     //statements
+    object visitClassStatement(ClassStatement *statement) {
+        Class new_class(statement->m_name.original, new Environment(m_environment));
+        executeBlock(statement->m_members,new_class.m_environment, false);
+        m_environment->define(statement->m_name.original,new_class);
+        return null_object();
+    }
         object visitFunctionStatement(FunctionStatement *statement) {
         Callable function =  Callable(statement->m_parameters.size(), nullptr,statement);
         m_environment->define(statement->m_name.original,function);
@@ -85,6 +91,17 @@ public:
         for (Expression* argument : expression->m_arguments) {
             arguments.push_back(eval(argument));
         }
+
+        //if class
+        if(ClassObject* obj = std::get_if<ClassObject>(&callee)){
+            //get and run constructor if available
+            object constructor = obj->m_environment->getValue(obj->m_class.m_name);
+            if(Callable* constructor_function = std::get_if<Callable>(&constructor)){
+                m_last_class = *obj;
+                callDeclaration(constructor_function,arguments);}
+            return callee; //return object
+        }
+
         if(Callable* function = std::get_if<Callable>(&callee)){
             if (arguments.size() != function->m_argument_number) {
                 m_error_handler->error("Too many function arguments: " + std::to_string(arguments.size()) + " expected: " +
@@ -121,8 +138,34 @@ public:
         return Reference(expression->m_variable->m_name.original, m_environment->getScope(expression->m_variable->m_name.original));
     }
     object visitVariableExpression(Variable* expression){
-        return m_environment->getValue(expression->m_name.original);
+        object value =  m_environment->getValue(expression->m_name.original);
+        if(Class* class_type = std::get_if<Class>(&value)){
+            ClassObject obj =  ClassObject(*class_type, class_type->m_environment->copy());
+            return obj;
+        }
+        return value;
     }
+    object visitGetExpression(Get *expression) {
+        object value = eval(expression->m_object);
+        if (ClassObject* obj = std::get_if<ClassObject>(&value)) {
+            m_last_class = *obj;
+            return obj->m_environment->getValue(expression->m_name.original);
+        }
+        m_error_handler->error("Runtime error: cannot access property of non object");
+        return null_object();
+    }
+
+    object visitSetExpression(Set *expression) {
+        object left = eval(expression->m_obj);
+        if(ClassObject* obj = std::get_if<ClassObject>(&left)){
+            object right = eval(expression->m_value);
+             obj->m_environment->assign(expression->m_name.original, right);
+            return null_object();
+        }
+        m_error_handler->error("Runtime error: cannot access property of non object");
+        return null_object();
+    }
+
 
     object visitBinaryExpression(Binary* expression){
         object right = eval(expression->m_right);
@@ -182,10 +225,12 @@ private:
     Environment* m_environment;
     Environment* m_top;
     ErrorHandler* m_error_handler;
+    //last used class object for function scoping
+    ClassObject m_last_class{ Class("")};
     object eval(Expression* expression){
         return expression->accept(this);
     }
-    object executeBlock(statementList statements, Environment* environment){
+    object executeBlock(statementList statements, Environment* environment, bool cleanup = true){
         Environment* pre = m_environment;
         m_environment = environment;
         object out = null_object();
@@ -195,21 +240,36 @@ private:
                 break;
             }
         }
+        if( cleanup){
             delete environment;
+        }
+
         m_environment = pre;
         return out;
     }
+    object getMember(ClassObject class_object, std::string name){
+
+    }
+
      object callDeclaration(Callable* function, std::vector<object> arguments){
         FunctionStatement* declaration = function->m_declaration;
         if(declaration == nullptr){
             return function->m_call(this,arguments);
         }
-        Environment* environment = new Environment(m_top);
+
+        //set up scope
+         Environment* environment;
+        if(m_last_class.m_class.m_name != ""){
+            environment = new Environment(m_last_class.m_environment);
+            //add this variable
+            environment->define("this",m_last_class);
+        }else{
+            environment = new Environment(m_top);
+        }
         for (int i = 0; i < declaration->m_parameters.size(); i++) {
             environment->define(declaration->m_parameters[i].original,
                                arguments[i]);
         }
-
        return executeBlock(declaration->m_body, environment);
 
     };
@@ -255,11 +315,11 @@ private:
     }
     //Standard Library
     void createStandardLibrary(){
-        m_environment->define("Lang",  Callable(0,[](Interpreter* runtime, std::vector<object> args) {
-            return object(std::string("Doge"));
+        m_environment->define("language",  Callable(0,[](Interpreter* runtime, std::vector<object> args) {
+            return object(std::string("DogeScript " + std::string(DOGE_LANGUAGE_VERSION)));
         }));
 
-        m_environment->define("Poop",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
+        m_environment->define("poop",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
             std::string a = runtime->getString(args[0]);
             return object(std::string("This " + a + " is poop"));
         }));

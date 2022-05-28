@@ -13,7 +13,16 @@ public:
     Environment(Environment* enclosing = nullptr){
         m_enclosing = enclosing;
     }
-
+    int size(){
+        return m_values.size();
+    }
+    Environment* copy()
+    {
+        Environment* new_env = new Environment;
+        new_env->m_values = m_values;
+        new_env->m_enclosing = m_enclosing;
+        return new_env;
+    }
     //return true if already defined
     bool define(std::string name, object value){
         if (m_values.find(name) == m_values.end() ) {
@@ -31,6 +40,8 @@ public:
         m_values[name] = value;
         return true;
     }
+
+
 
     object getValue(std::string name){
         if (m_values.find(name) == m_values.end() ) {
