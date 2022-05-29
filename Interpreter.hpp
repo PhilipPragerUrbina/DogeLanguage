@@ -7,29 +7,62 @@
 
 #include "Environment.hpp"
 #include <chrono>
-
+#include <thread>
 
 
 
 class Interpreter : public Visitor{
 public:
-    //main
-    std::string run(statementList statements, ErrorHandler* error_handler) {
+    ~Interpreter(){
+        //clean up threads
+        if(m_threaded){
+            delete m_error_handler;
+        }
+    }
+
+    //run the interpreter
+    std::string run(statementList statements,ErrorHandler* error_handler) {
+        //setup error handler
         m_error_handler = error_handler;
+        m_error_handler->m_name = "Runtime";
+
         m_environment = new Environment();
         m_top = m_environment;
         for(Statement* statement:statements){
             statement->accept(this);
         }
-        object out = error_handler->getErrorNumber();
+        object out = m_error_handler->getErrorNumber();
         return getString(out);
     }
+    //multithreading stuff:
+    bool m_threaded = false;
+    //run a function
+    void runForked(Callable call, Environment* top_env) {
+        m_threaded = true;
+        m_error_handler = new ErrorHandler("Process");
+        m_environment = top_env;
+        m_top = m_environment;
+        call.m_declaration->accept(this);
+        callDeclaration(&call,{});
 
+    }
+    //run a function with params
+    void runThread(Callable call, Environment* top_env, std::vector<object> args, object* out) {
+        m_threaded = true;
+        m_error_handler = new ErrorHandler("Thread");
+        m_environment = top_env;
+        m_top = m_environment;
+        call.m_declaration->accept(this);
+        *out =  callDeclaration(&call,args);
+    }
 
     //statements
     object visitImportStatement(ImportStatement *statement){
         if(statement->m_name.original == "SL"){
             createStandardLibrary(m_environment);
+        }
+        if(statement->m_name.original == "Thread"){
+            createThreadingLibrary(m_environment);
         }
         return null_object();
     }
@@ -63,10 +96,11 @@ public:
         object out = null_object();
         while(isTruthy(eval(statement->m_condition))){
             out = statement->m_body->accept(this);
-            //TODO fix break and continue
-            if(m_break){
-                m_break = false;
-                return out;
+            if(std::get_if<Signal>(&out)){
+                return null_object();
+            }
+            if(!std::get_if<null_object>(&out)){
+                break;
             }
             //could also use goto rather than c loop,
             //but it ends up the exact same
@@ -77,8 +111,7 @@ public:
     object visitReturnStatement(ReturnStatement *statement){
         object value = null_object();
         if(statement->m_keyword.original == "break"){
-            m_break = true;
-            return null_object();
+            return Signal(0);
         }
         if(statement->m_value!= nullptr){
             value = eval(statement->m_value);
@@ -123,11 +156,11 @@ public:
         }
 
         if(Callable* function = std::get_if<Callable>(&callee)){
-            if (arguments.size() != function->m_argument_number) {
+            if (arguments.size() != function->m_argument_number && function->m_argument_number > -1) {
                 m_error_handler->error("Too many function arguments: " + std::to_string(arguments.size()) + " expected: " +
                                                std::to_string(function->m_argument_number));}
             return callDeclaration(function,arguments);}
-        m_error_handler->error("Can not call non callable");
+        m_error_handler->error(expression->m_line, "Can not call non callable.");
         return null_object();
     }
 
@@ -145,13 +178,13 @@ public:
         object value = eval(expression->m_value);
 
         if(m_environment->isConst(expression->m_name.original)){
-            m_error_handler->error("Runtime Error: attempt to write constant");
+            m_error_handler->error(expression->m_line,"Attempt to write constant.");
         }
         else if(expression->m_pointer){
             Reference ref = std::get<Reference>(m_environment->getValue(expression->m_name.original));
-            if(!ref.m_env->assign(ref.m_name,value)){m_error_handler->error("Pointer undefined: " + expression->m_name.original);};
+            if(!ref.m_env->assign(ref.m_name,value)){m_error_handler->error(expression->m_line,"Pointer undefined: " + expression->m_name.original);};
         }
-        else if(!m_environment->assign(expression->m_name.original,value)){m_error_handler->error("Assignment undefined: " + expression->m_name.original);};
+        else if(!m_environment->assign(expression->m_name.original,value)){m_error_handler->error(expression->m_line,"Assignment undefined: " + expression->m_name.original);};
         return null_object();
     }
     object visitPointerExpression(Pointer *expression){
@@ -175,7 +208,7 @@ public:
             m_last_class = *obj;
             return obj->m_environment->getValue(expression->m_name.original);
         }
-        m_error_handler->error("Runtime error: cannot access property of non object");
+        m_error_handler->error(expression->m_line,"Cannot read property of non object.");
         return null_object();
     }
 
@@ -186,7 +219,7 @@ public:
              obj->m_environment->assign(expression->m_name.original, right);
             return null_object();
         }
-        m_error_handler->error("Runtime error: cannot access property of non object");
+        m_error_handler->error(expression->m_line,"Cannot write property of non object.");
         return null_object();
     }
 
@@ -194,37 +227,38 @@ public:
     object visitBinaryExpression(Binary* expression){
         object right = eval(expression->m_right);
         object left = eval(expression->m_left);
+        //TODO add operator overloading
         switch (expression->m_operator_.type) {
             case BANG_EQUAL: return !isEqual(left, right);
             case EQUAL_EQUAL: return isEqual(left, right);
             case GREATER:
-                if(float* number = std::get_if<float>(&left)){return *number > getFloat(right);}
-                if(int* number = std::get_if<int>(&left)){return *number > getInt(right);}
+                if(float* number = std::get_if<float>(&left)){return *number > getFloat(right, expression->m_line);}
+                if(int* number = std::get_if<int>(&left)){return *number > getInt(right, expression->m_line);}
             case GREATER_EQUAL:
-                if(float* number =std::get_if<float>(&left)){return *number >= getFloat(right);}
-                if(int* number =std::get_if<int>(&left)){return *number >= getInt(right);}
+                if(float* number =std::get_if<float>(&left)){return *number >= getFloat(right, expression->m_line);}
+                if(int* number =std::get_if<int>(&left)){return *number >= getInt(right, expression->m_line);}
             case LESS:
-                if(float* number =std::get_if<float>(&left)){return *number < getFloat(right);}
-                if(int* number =std::get_if<int>(&left)){return *number < getInt(right);}
+                if(float* number =std::get_if<float>(&left)){return *number < getFloat(right, expression->m_line);}
+                if(int* number =std::get_if<int>(&left)){return *number < getInt(right, expression->m_line);}
             case LESS_EQUAL:
-                if(float* number =std::get_if<float>(&left)){return *number <= getFloat(right);}
-                if(int* number =std::get_if<int>(&left)){return *number  <=  getInt(right);}
+                if(float* number =std::get_if<float>(&left)){return *number <= getFloat(right, expression->m_line);}
+                if(int* number =std::get_if<int>(&left)){return *number  <=  getInt(right, expression->m_line);}
             case MINUS:
-                if(float* number =std::get_if<float>(&left)){return *number - getFloat(right);}
-                if(int* number =std::get_if<int>(&left)){return *number - getInt(right);}
+                if(float* number =std::get_if<float>(&left)){return *number - getFloat(right, expression->m_line);}
+                if(int* number =std::get_if<int>(&left)){return *number - getInt(right, expression->m_line);}
             case SLASH:
-                if(getFloat(right) == 0){  m_error_handler->error("Runtime error: divide by zero"); return null_object();}
-                if(float* number =std::get_if<float>(&left)){return *number / getFloat(right);}
-                if(int* number =std::get_if<int>(&left)){return *number / getInt(right);}
+                if(getFloat(right, expression->m_line) == 0){  m_error_handler->error(expression->m_line,"Divide by zero."); return null_object();}
+                if(float* number =std::get_if<float>(&left)){return *number / getFloat(right, expression->m_line);}
+                if(int* number =std::get_if<int>(&left)){return *number / getInt(right, expression->m_line);}
             case STAR:
-                if(float* number =std::get_if<float>(&left)){return *number * getFloat(right);}
-                if(int* number =std::get_if<int>(&left)){return *number * getInt(right);}
+                if(float* number =std::get_if<float>(&left)){return *number * getFloat(right, expression->m_line);}
+                if(int* number =std::get_if<int>(&left)){return *number * getInt(right, expression->m_line);}
             case PLUS:
-                if(int* number =std::get_if<int>(&left)){return *number + getInt(right);}
-                if(float* number =std::get_if<float>(&left)){return *number + getFloat(right);}
-                if(std::string* s =std::get_if<std::string>(&left)){return *s + getString(right);}
+                if(int* number =std::get_if<int>(&left)){return *number + getInt(right, expression->m_line);}
+                if(float* number =std::get_if<float>(&left)){return *number + getFloat(right, expression->m_line);}
+                if(std::string* s =std::get_if<std::string>(&left)){return *s + getString(right, expression->m_line);}
         }
-        m_error_handler->error("Runtime error: not a binary type");
+        m_error_handler->error(expression->m_line,"Not a binary type for: " + expression->m_operator_.original);
         return null_object();
     };
     object visitGroupingExpression(Grouping* expression){
@@ -242,7 +276,7 @@ public:
                 if(float* number =std::get_if<float>(&right)){return -*number;}
                 if(int* number =std::get_if<int>(&right)){return -*number;}
         }
-        m_error_handler->error("Runtime error: not a unary type");
+        m_error_handler->error(expression->m_line,"Not a unary type.");
         return null_object();
     };
 private:
@@ -251,7 +285,6 @@ private:
     ErrorHandler* m_error_handler;
     //last used class object for function scoping
     ClassObject m_last_class{ Class("")};
-    bool m_break = false;
     object eval(Expression* expression){
         return expression->accept(this);
     }
@@ -272,10 +305,6 @@ private:
         m_environment = pre;
         return out;
     }
-    object getMember(ClassObject class_object, std::string name){
-
-    }
-
      object callDeclaration(Callable* function, std::vector<object> arguments){
         FunctionStatement* declaration = function->m_declaration;
         if(declaration == nullptr){
@@ -315,27 +344,27 @@ private:
         if(std::string* s =std::get_if<std::string>(&a)){return *s == getString(b);}
         return isTruthy(a) == isTruthy(b);
     }
-    int getInt(object in){
+    int getInt(object in, int line = 0){
         if(int* number =std::get_if<int>(&in)){return *number;}
         if(float* number =std::get_if<float>(&in)){return *number;}
         if(std::string* s =std::get_if<std::string>(&in)){return std::stoi(*s);}
-        m_error_handler->error("Runtime error: could not convert to int");
+        m_error_handler->error(line, "Could not convert to int.");
         return 0;
     }
-    float getFloat(object in){
+    float getFloat(object in, int line = 0){
         if(float* number =std::get_if<float>(&in)){return *number;}
         if(int* number =std::get_if<int>(&in)){return *number;}
         if(std::string* s =std::get_if<std::string>(&in)){return std::stof(*s);}
-        m_error_handler->error("Runtime error: could not convert to float");
+        m_error_handler->error(line,"Could not convert to float.");
         return 0;
     }
-    std::string getString(object in){
+    std::string getString(object in, int line = 0){
         if(std::string* s =std::get_if<std::string>(&in)){return *s;}
         if(float* number =std::get_if<float>(&in)){return std::to_string(*number);}
         if(int* number =std::get_if<int>(&in)){return std::to_string(*number);}
         if(bool* b =std::get_if<bool>(&in)){return std::to_string(*b);}
         if(std::get_if<null_object>(&in)){ return "null";};
-        m_error_handler->error("Runtime error: cannot convert to string");
+        m_error_handler->error(line,"Cannot convert to string.");
         return "";
     }
 
@@ -363,6 +392,12 @@ private:
             return object(null_object());
         }));
 
+        env->define("printSameLine",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
+            std::string out = runtime->getString(args[0]);
+            std::cout << out;
+            return object(null_object());
+        }));
+
         env->define("input",  Callable(0,[](Interpreter* runtime, std::vector<object> args) {
             std::string input = "";
             std::cin >> input;
@@ -377,6 +412,69 @@ private:
             auto  time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
             return object((float)time/ 1000.0f);
         }));
+    }
+
+    //library for multi threading
+    static void createThreadingLibrary(Environment* env){
+        //keep track of threads
+        static std::vector<std::thread> running;
+        static std::vector<object> outputs;
+
+        //run a standalone function in new thread. Effectively detach
+        env->define("fork",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
+            Callable to_run = std::get<Callable>(args[0]);
+            Interpreter new_runtime;
+            running.push_back(std::thread{ &Interpreter::runForked,new_runtime ,to_run,runtime->m_top->copy()});
+            return object((null_object()));
+        }));
+        //run a thread. Returns thread id.
+        env->define("thread",  Callable(-1,[](Interpreter* runtime, std::vector<object> args) {        //-1 args means any number of arguments
+            Callable to_run = std::get<Callable>(args[0]);   //get function
+            Interpreter new_runtime; //create thread runtime
+            //create function args
+            std::vector<object> new_args = args;
+            new_args.erase(new_args.begin());   //same as thread call args except first
+            outputs.push_back(null_object());
+            object* out = &outputs[outputs.size()-1]; //get output of thread
+            //keep track of thread
+            running.push_back(std::thread{ &Interpreter::runThread,new_runtime ,to_run,runtime->m_top->copy(), new_args,out});
+            return object((int)running.size()-1);
+        }));
+
+        //Join equivalent sync and get thread output from id
+        env->define("getThread",Callable(1,[](Interpreter* runtime, std::vector<object> args) {
+           int id = runtime->getInt(args[0]);
+           running[id].join();
+           object out = outputs[id];
+           running.erase(running.begin() + id);
+           outputs.erase(outputs.begin()+id);
+            return object(out);
+        }));
+
+        //wait for milliseconds
+        env->define("waitM",Callable(1,[](Interpreter* runtime, std::vector<object> args) {
+            int time = runtime->getInt(args[0]);
+            std::this_thread::sleep_for(std::chrono::milliseconds (time));
+            return object(null_object());
+        }));
+
+        //wait for seconds
+        env->define("waitS",Callable(1,[](Interpreter* runtime, std::vector<object> args) {
+            int time = runtime->getInt(args[0]);
+            std::this_thread::sleep_for(std::chrono::seconds(time));
+            return object(null_object());
+        }));
+
+        //wait for threads to finish. returns number of threads synced.
+        env->define("sync",Callable(0,[](Interpreter* runtime, std::vector<object> args) {
+            int number = running.size();
+            for(std::thread& runner : running){
+                runner.join();
+            }
+            running.clear();
+            return object(number);
+        }));
+
     }
 };
 

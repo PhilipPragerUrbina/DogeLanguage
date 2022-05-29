@@ -61,15 +61,17 @@ public:
 class Expression {
 public:
     virtual object accept(Visitor* visitor){return 0;};
+    int m_line = 0;
 };
 
 //derived classes
 class Binary : public Expression {
 public:
-    Binary(Expression* left, Token operator_, Expression* right) {
+    Binary(Expression* left, Token operator_, Expression* right, int line) {
         m_left = left;
         m_operator_ = operator_;
         m_right = right;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -83,10 +85,11 @@ public:
 
 class Call : public Expression {
 public:
-    Call(Expression* callee, Token paren, std::vector<Expression*> arguments) {
+    Call(Expression* callee, Token paren, std::vector<Expression*> arguments, int line) {
         m_callee = callee;
         m_paren = paren;
         m_arguments = arguments;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -100,9 +103,10 @@ public:
 
 class Get : public Expression {
 public:
-    Get(Expression* class_object, Token name) {
+    Get(Expression* class_object, Token name, int line) {
         m_object = class_object;
         m_name = name;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -114,10 +118,11 @@ public:
 };
 class Logic : public Expression {
 public:
-    Logic(Expression* left, Token operator_, Expression* right) {
+    Logic(Expression* left, Token operator_, Expression* right, int line) {
         m_left = left;
         m_operator_ = operator_;
         m_right = right;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -130,8 +135,9 @@ public:
 };
 class Grouping : public Expression {
 public:
-    Grouping(Expression* expression) {
+    Grouping(Expression* expression, int line) {
         m_expression = expression;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -142,8 +148,9 @@ public:
 };
 class Literal : public Expression {
 public:
-    Literal(object value) {
+    Literal(object value, int line) {
         m_value = value;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -154,9 +161,10 @@ public:
 };
 class Unary : public Expression {
 public:
-    Unary(Token operator_, Expression* right) {
+    Unary(Token operator_, Expression* right, int line) {
         m_operator_ = operator_;
         m_right = right;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -168,9 +176,10 @@ public:
 };
 class Variable : public Expression {
 public:
-    Variable(Token name, bool constant = false) {
+    Variable(Token name, int line, bool constant) {
         m_name = name;
         m_constant = constant;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -181,8 +190,9 @@ public:
 };
 class Pointer : public Expression {
 public:
-    Pointer(Variable* variable) {
+    Pointer(Variable* variable, int line) {
         m_variable = variable;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -194,10 +204,11 @@ public:
 
 class Assign : public Expression {
 public:
-    Assign(Expression* value, Token name, bool pointer = false) {
+    Assign(Expression* value, Token name,int line, bool pointer) {
         m_name = name;
         m_value = value;
         m_pointer = pointer;
+        m_line = line;
 
     }
 
@@ -212,10 +223,11 @@ public:
 };
 class Set : public Expression {
 public:
-    Set(Expression* value, Token name, Expression* obj) {
+    Set(Expression* value, Token name, Expression* obj, int line) {
         m_name = name;
         m_value = value;
         m_obj = obj;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -232,13 +244,15 @@ class Statement {
 public:
 
     virtual object accept(Visitor* visitor){return  0;};
+    int m_line = 0;
 };
 typedef std::vector<Statement*> statementList;
 class ReturnStatement : public Statement {
 public:
-    ReturnStatement(Token keyword, Expression* value) {
+    ReturnStatement(Token keyword, Expression* value, int line) {
         m_value = value;
         m_keyword = keyword;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -250,10 +264,11 @@ public:
 };
 class FunctionStatement : public Statement {
 public:
-    FunctionStatement(Token name, std::vector<Token> parameters, statementList body) {
+    FunctionStatement(Token name, std::vector<Token> parameters, statementList body, int line) {
         m_name = name;
         m_parameters = parameters;
         m_body = body;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -265,9 +280,10 @@ public:
 };
 class ClassStatement : public Statement {
 public:
-    ClassStatement(Token name, std::vector<Statement*> members) {
+    ClassStatement(Token name, std::vector<Statement*> members, int line) {
         m_name = name;
         m_members = members;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -279,8 +295,9 @@ public:
 
 class ExpressionStatement : public Statement {
 public:
-    ExpressionStatement(Expression* expression) {
+    ExpressionStatement(Expression* expression, int line) {
         m_expression = expression;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -291,8 +308,9 @@ public:
 
 class ImportStatement : public Statement {
 public:
-    ImportStatement(Token name) {
+    ImportStatement(Token name,int line) {
         m_name = name;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -302,8 +320,9 @@ public:
 };
 class IncludeStatement : public Statement {
 public:
-    IncludeStatement(Expression* name) {
+    IncludeStatement(Expression* name, int line) {
         m_name = name;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -314,10 +333,11 @@ public:
 
 class VariableStatement : public Statement {
 public:
-    VariableStatement(Expression* initializer, Token name, bool constant) {
+    VariableStatement(Expression* initializer, Token name, bool constant, int line) {
         m_initializer = initializer;
         m_name = name;
         m_constant = constant;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -329,8 +349,9 @@ public:
 };
 class BlockStatement : public Statement {
 public:
-    BlockStatement(statementList statements) {
+    BlockStatement(statementList statements, int line) {
         m_statements = statements;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -341,10 +362,11 @@ public:
 };
 class IfStatement : public Statement {
 public:
-    IfStatement(Expression* condition, Statement* then_branch, Statement* else_branch) {
+    IfStatement(Expression* condition, Statement* then_branch, Statement* else_branch, int line) {
         m_condition = condition;
         m_then_branch = then_branch;
         m_else_branch = else_branch;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {
@@ -357,9 +379,10 @@ public:
 };
 class WhileStatement : public Statement {
 public:
-    WhileStatement(Expression* condition, Statement* body) {
+    WhileStatement(Expression* condition, Statement* body, int line) {
         m_condition = condition;
         m_body = body;
+        m_line = line;
     }
 
     object accept(Visitor* visitor) {

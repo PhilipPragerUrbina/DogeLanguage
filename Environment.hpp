@@ -20,6 +20,7 @@ public:
     {
         Environment* new_env = new Environment;
         new_env->m_values = m_values;
+        new_env->m_constants = m_constants;
         new_env->m_enclosing = m_enclosing;
         return new_env;
     }

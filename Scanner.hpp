@@ -47,8 +47,15 @@ public:
     Class m_class;
     Environment* m_environment;
 };
+struct Signal{
+    Signal(int signal){
+        m_signal = signal;
+    }
+    int m_signal;
+};
+
 //generic object with all supported types
-typedef std::variant<int, float, std::string, bool, null_object, Callable,Reference,Class, ClassObject> object;
+typedef std::variant<int, float, std::string, bool, null_object, Callable,Reference,Class, ClassObject, Signal> object;
 
 //function pointer
 typedef object (*callPointer)( Interpreter* ,std::vector<object>);
@@ -82,7 +89,7 @@ enum TokenType {
     IDENTIFIER, STRING, INTEGER, FLOATING,
     //words.
     AND, CLASS, ELSE, FALSE, FOR, IF, NIL, OR,
-    RETURN, SUPER, THIS, TRUE, VAR, WHILE,REFERENCE,CONST,BREAK, CONTINUE,HASH,IMPORT, INCLUDE,
+    RETURN, SUPER, THIS, TRUE, VAR, WHILE,REFERENCE,CONST,BREAK, CONTINUE,HASH,IMPORT, INCLUDE,INC, DEC,
     //end of file
     END
 };
@@ -220,8 +227,8 @@ public:
                     case '}': addToken(RIGHT_BRACE); break;
                     case ',': addToken(COMMA); break;
                     case '.': addToken(DOT); break;
-                    case '-': addToken(MINUS); break;
-                    case '+': addToken(PLUS); break;
+                    case '-': addToken(match('+') ? DEC : MINUS); break;
+                    case '+': addToken(match('+') ? INC : PLUS); break;
                     case ';': addToken(SEMICOLON); break;
                     case '*':addToken(STAR);break;
                     case '"': string = true; break;

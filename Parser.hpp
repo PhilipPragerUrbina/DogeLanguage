@@ -7,7 +7,7 @@
 
 #include "Expression.hpp"
 
-
+//convenience type
 typedef std::vector<Statement*> statementList;
 
 class Parser {
@@ -15,6 +15,8 @@ public:
     //create parser from tokens
     Parser(  std::vector<Token> tokens, ErrorHandler* error_handler){
         m_error_handler = error_handler;
+        m_error_handler->m_name = "Parsing";
+
         m_tokens = tokens;
     }
     //parse the tokens and return the parent node of the AST
@@ -26,35 +28,39 @@ public:
         return statements;
     }
 private:
+    //for handling errors
     ErrorHandler* m_error_handler;
     std::vector<Token> m_tokens;
     //current token
     int m_current = 0;
 
     //checks
+    //see if current token is of a list of type and go to next if it is
     bool match(std::vector<TokenType> types) {
         for (TokenType type : types) {
             if (check(type)) {m_current++; return true;}
         }
         return false;
     }
+    //just see if current token of type
     bool check(TokenType type){
         if(m_tokens[m_current].type == END){return false;}
         return m_tokens[m_current].type == type;
     }
-    //TODO proper line number errors during runtime
+    //get the line number
     int getLine(){
         return m_tokens[m_current-1].line;
     }
+    //match token and create error otherwise
     Token consume(TokenType type, std::string message) {
         if (check(type)) {m_current++; return m_tokens[m_current-1];}else{
-            m_error_handler->error(m_tokens[m_current].line, message);
+            m_error_handler->error(getLine(), message);
         }
     }
 
-
     //grammar functions
 
+    //first declarations
     Statement* declaration(){
         if(match({HASH})){return importDeclaration();}
         if(match({VAR})){return variableDeclaration();}
@@ -62,57 +68,59 @@ private:
         if(match({CLASS})){return classDeclaration();}
         return statement();
     }
+
+    //#import SL; or #include "/new.doge";
     Statement* importDeclaration(){
         if(match({IMPORT})){
-            Token name = consume(IDENTIFIER, "Expected import name");
-            consume(SEMICOLON, "Expected ; after import");
-            return new ImportStatement(name);
+            Token name = consume(IDENTIFIER, "Expected import name.");
+            consume(SEMICOLON, "Expected ; after import.");
+            return new ImportStatement(name, getLine());
         }
         else if(match({INCLUDE})){
             Expression* directory = expression();
-            consume(SEMICOLON, "Expected ; after include");
-            return new IncludeStatement(directory);
+            consume(SEMICOLON, "Expected ; after include.");
+            return new IncludeStatement(directory, getLine());
         }
-        m_error_handler->error("Expected imports");
+        m_error_handler->error("Expected imports or includes.");
         return nullptr;
     }
 
+    //class cake{}
     Statement* classDeclaration(){
-        Token name = consume(IDENTIFIER, "Expected class name");
-        consume(LEFT_BRACE, "Expected { after parameters");
+        Token name = consume(IDENTIFIER, "Expected class name.");
+        consume(LEFT_BRACE, "Expected { class name.");
         statementList body = block();
-        return new ClassStatement(name,body);
+        return new ClassStatement(name,body, getLine());
     }
 
-
+    //var foo = bar; or var foo;
     Statement* variableDeclaration(bool constant = false){
-        Token name = consume(IDENTIFIER, "Expected variable name");
+        Token name = consume(IDENTIFIER, "Expected variable name.");
         if(check(LEFT_PAREN)){return functionDeclaration(name);}
 
         Expression* initializer = nullptr;
         if(match({EQUAL})){
             initializer = expression();
         }
-        consume(SEMICOLON, "Expected ; after expression");
-        return new VariableStatement(initializer, name,constant);
+        consume(SEMICOLON, "Expected ; after expression.");
+        return new VariableStatement(initializer, name,constant, getLine());
     }
+    //var a(b,c){}
     Statement* functionDeclaration(Token name){
-
-        consume(LEFT_PAREN, "Expected ( after function");
-
+        consume(LEFT_PAREN, "Expected ( after function name.");
         std::vector<Token> parameters;
         if (!check(RIGHT_PAREN)) {
             do {
-                parameters.push_back(consume(IDENTIFIER, "Expected parameter name"));
+                parameters.push_back(consume(IDENTIFIER, "Expected parameter name."));
             } while (match({COMMA}));
         }
-        consume(RIGHT_PAREN, "Expected ) after parameters");
-
-        consume(LEFT_BRACE, "Expected { after parameters");
+        consume(RIGHT_PAREN, "Expected ) after parameters.");
+        consume(LEFT_BRACE, "Expected { after parameters.");
         statementList body = block();
-        return new FunctionStatement(name, parameters,body);
+        return new FunctionStatement(name, parameters,body, getLine());
     };
 
+    //next match statements
     Statement* statement(){
         if(match({IF})){return  ifStatement();}
         if(match({RETURN})){return  returnStatement();}
@@ -120,26 +128,27 @@ private:
         if(match({CONTINUE})){return  loopStatement();}
         if(match({WHILE})){return  whileStatement();}
         if(match({FOR})){return  forStatement();}
-        if (match({LEFT_BRACE})) return new BlockStatement(block());
+        if (match({LEFT_BRACE})) return new BlockStatement(block(), getLine());
         return expressionStatement();
     }
 
-
-
+    //if(a == true){}
     Statement* ifStatement(){
-        consume(LEFT_PAREN, "Expected ( after if");
+        consume(LEFT_PAREN, "Expected ( after if.");
         Expression* condition = expression();
-        consume(RIGHT_PAREN, "Expected ) after conditional");
-
+        consume(RIGHT_PAREN, "Expected ) after conditions.");
         Statement* then_statement = statement();
         Statement* else_statement = nullptr;
         if(match({ELSE})){
             else_statement = statement();
         }
-        return new IfStatement(condition,then_statement,else_statement);
+        return new IfStatement(condition,then_statement,else_statement, getLine());
     }
-    //is in loop?
-    int m_loop = 0;
+
+
+    int m_loop = 0; //keep track of loop depth for break statement errors.
+
+    //while(true){}
     Statement* whileStatement(){
         consume(LEFT_PAREN, "Expected ( after if");
         Expression* condition = expression();
@@ -147,45 +156,47 @@ private:
         m_loop++;
         Statement* body = statement();
         m_loop--;
-        return new WhileStatement(condition,body);
+        return new WhileStatement(condition,body, getLine());
     }
+
+    //Turn for statement into while statement
     Statement* forStatement(){
-        consume(LEFT_PAREN, "Expected ( after if");
+        consume(LEFT_PAREN, "Expected ( after for.");
         Statement* initializer = nullptr;
         if(match({VAR})){
             initializer = variableDeclaration();
         }else{
             initializer = expressionStatement();
         }
-        Expression* condition = nullptr;
-        condition = expression();
-        consume(SEMICOLON,"Expected for loop condition ;");
-        Expression* increment = nullptr;
-        increment = expression();
-        consume(RIGHT_PAREN, "Expected ) after for");
+        Expression* condition = expression();
+        consume(SEMICOLON,"Expected ; after condition.");
+        Expression* increment = expression();
+        consume(RIGHT_PAREN, "Expected ) after for.");
         Statement* body = statement();
-        body = new BlockStatement({body, new ExpressionStatement(increment)});
-        body = new WhileStatement(condition,body);
-        body = new BlockStatement({initializer,body});
+        body = new BlockStatement({body, new ExpressionStatement(increment, getLine())}, getLine());
+        body = new WhileStatement(condition,body, getLine());
+        body = new BlockStatement({initializer,body}, getLine());
         return body;
     }
 
+    //{}
     statementList block(){
         statementList statements;
         while (!check(RIGHT_BRACE) && m_tokens[m_current].type != END){
             statements.push_back(declaration());
         }
-        consume(RIGHT_BRACE, "Expected } after block");
+        consume(RIGHT_BRACE, "Expected } after block.");
 
         return statements;
-    }   //TODO make proper statements for break and continue.
+    }
+    //TODO make proper statements for break and continue.
     Statement* loopStatement(){
         if(m_loop == 0){
-            m_error_handler->error(m_tokens[m_current-1].line, "Break called not in loop");
+            m_error_handler->error(m_tokens[m_current-1].line, "Break called while not in loop.");
         }
         Token keyword = m_tokens[m_current-1];
-        consume(SEMICOLON, "Expected ; after expression");
-        return new ReturnStatement(keyword, nullptr);
+        consume(SEMICOLON, "Expected ; after expression.");
+        return new ReturnStatement(keyword, nullptr, getLine());
     }
     Statement* returnStatement(){
         Token keyword = m_tokens[m_current-1];
@@ -193,15 +204,15 @@ private:
         if(!check(SEMICOLON)){
             right = expression();
         }
-        consume(SEMICOLON, "Expected ; after expression");
-        return new ReturnStatement(keyword, right);
+        consume(SEMICOLON, "Expected ; after expression.");
+        return new ReturnStatement(keyword, right, getLine());
     }
 
 
     Statement* expressionStatement(){
         Expression* right = expression();
-        consume(SEMICOLON, "Expected ; after expression");
-        return new ExpressionStatement(right);
+        consume(SEMICOLON, "Expected ; after expression.");
+        return new ExpressionStatement(right, getLine());
     }
 
     Expression* expression(){
@@ -215,17 +226,17 @@ private:
             Expression* right = assignment();
             if (Variable* variable = dynamic_cast<Variable*>(left)){
 
-                return new Assign(right,variable->m_name);
+                return new Assign(right,variable->m_name, getLine(), false);
             }
             else if (Pointer* ptr = dynamic_cast<Pointer*>(left)){
 
-                return new Assign(right,ptr->m_variable->m_name, true);
+                return new Assign(right,ptr->m_variable->m_name, getLine(), true);
             }
             else if (Get* obj = dynamic_cast<Get*>(left)){
 
-                return new Set(right,obj->m_name, obj->m_object);
+                return new Set(right,obj->m_name, obj->m_object, getLine());
             }
-            m_error_handler->error(m_tokens[m_current-1].line, "Assignment error");
+            m_error_handler->error(m_tokens[m_current-1].line, "Assignment error.");
         }
         return left;
     }
@@ -235,7 +246,7 @@ private:
         while (match({OR})){
             Token operation_ =   m_tokens[m_current-1];
             Expression* right = and_();
-            left= new Logic(left, operation_, right);
+            left= new Logic(left, operation_, right, getLine());
         }
         return left;
     }
@@ -245,7 +256,7 @@ private:
         while (match({AND})){
             Token operation_ =   m_tokens[m_current-1];
             Expression* right = equality();
-            left= new Logic(left, operation_, right);
+            left= new Logic(left, operation_, right, getLine());
         }
         return left;
     }
@@ -255,7 +266,7 @@ private:
         while (match({BANG_EQUAL, EQUAL_EQUAL})) {
             Token operation_ =  m_tokens[m_current-1];
             Expression* right = comparison();
-            left= new Binary(left, operation_, right);
+            left= new Binary(left, operation_, right, getLine());
         }
         return left;
     }
@@ -264,16 +275,32 @@ private:
         while (match({GREATER, GREATER_EQUAL, LESS, LESS_EQUAL})) {
             Token operation_ =  m_tokens[m_current-1];
             Expression* right = term();
-            left= new Binary(left, operation_, right);
+            left= new Binary(left, operation_, right, getLine());
         }
         return left;
     }
- Expression* term() {
-        Expression* left= factor();
-        while (match({MINUS, PLUS})) {
+ Expression* term() {Expression* left= factor();
+
+     if(match({INC})){
+         Token add; add.original = "+";add.type = PLUS;   add.line = getLine();
+         if (Variable* variable = dynamic_cast<Variable*>(left)) {
+             //enjoy a nightmare line
+             return new Assign(new Binary(left, add, new Literal(1, getLine()), getLine()), variable->m_name, getLine(), false);
+         }
+         m_error_handler->error(m_tokens[m_current-1].line, "Cannot increment non variable");
+     }
+     else if(match({DEC})){
+         Token subtract;  subtract.original = "-";subtract.type = MINUS;  subtract.line = getLine();
+         if (Variable* variable = dynamic_cast<Variable*>(left)) {
+             return new Assign(new Binary(left, subtract, new Literal(1, getLine()), getLine()), variable->m_name, getLine(), false);
+         }
+         m_error_handler->error(m_tokens[m_current-1].line, "Cannot decrement non variable");
+     }
+
+     while (match({MINUS, PLUS})) {
             Token operation_ = m_tokens[m_current-1];
             Expression* right = factor();
-            left= new Binary(left, operation_, right);
+            left= new Binary(left, operation_, right, getLine());
         }
         return left;
     }
@@ -282,7 +309,7 @@ private:
         while (match({SLASH, STAR})) {
             Token operation_  = m_tokens[m_current-1];
             Expression* right = unary();
-            left= new Binary(left, operation_, right);
+            left= new Binary(left, operation_, right, getLine());
         }
         return left;
     }
@@ -290,7 +317,7 @@ private:
         if (match({BANG, MINUS})) {
             Token operation_ = m_tokens[m_current-1];
             Expression* right = unary();
-            return new Unary(operation_, right);
+            return new Unary(operation_, right, getLine());
         }
         return callExpression();
     }
@@ -302,7 +329,7 @@ private:
             else if(match({DOT})){
                 Token name = consume(IDENTIFIER,
                                      "Expected property name");
-                left = new Get(left,name);
+                left = new Get(left,name, getLine());
             }else{
                 break;
             }
@@ -319,31 +346,32 @@ private:
         Token paren = consume(RIGHT_PAREN,
                               "Expect ')' after arguments.");
 
-        return  new Call(callee, paren, arguments);
+        return  new Call(callee, paren, arguments, getLine());
     }
     Expression* primary() {
-        if (match({FALSE})) return new Literal(false);
-        if (match({TRUE})) return new Literal(true);
-        if (match({NIL})) return new Literal(null_object());
+        if (match({FALSE})) return new Literal(false, getLine());
+        if (match({TRUE})) return new Literal(true, getLine());
+        if (match({NIL})) return new Literal(null_object(), getLine());
         if (match({FLOATING,INTEGER, STRING})) {
-            return new Literal(m_tokens[m_current-1].value);
+            return new Literal(m_tokens[m_current-1].value, getLine());
         }
         if(match({REFERENCE})){
             if(match({IDENTIFIER})){
-                return new Pointer(new Variable(m_tokens[m_current-1]));
+                return new Pointer(new Variable(m_tokens[m_current-1], getLine(), false), getLine());
             }
         }
 
         if (match({IDENTIFIER})) {
-            return new Variable(m_tokens[m_current-1]);
+            return new Variable(m_tokens[m_current-1], getLine(),false);
         }
         if (match({LEFT_PAREN})) {
             Expression* middle = expression();
-            consume(RIGHT_PAREN, "Expected ) after expression: " + m_tokens[m_current-1].original); //after expression check for right parentheses
-            return new Grouping(middle);
+            consume(RIGHT_PAREN, "Expected ) after (."); //after expression check for right parentheses
+            return new Grouping(middle, getLine());
         }
-        m_error_handler->error(m_tokens[m_current].line, "expected expression: " + m_tokens[m_current].original);
-        return NULL;
+        //does not parse to anything
+        m_error_handler->error(m_tokens[m_current].line, "Expected expression.");
+        return nullptr;
     }
 };
 

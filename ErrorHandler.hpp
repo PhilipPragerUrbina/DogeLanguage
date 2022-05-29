@@ -12,39 +12,43 @@
 
 class ErrorHandler {
 public:
+    std::string m_name;
+    ErrorHandler(std::string name = "Program"){
+        m_name = name;
+    }
     //throw normal error
     void error(int line, std::string message = "unknown"){
         Color::start(RED);
-        std::cout << "Line " << line << " Error: " << message << "\n";
+        std::cout << "Line " << line+1 <<  " " << m_name << " Error: " << message << "\n";
         Color::end();
         m_error_number++;
     }
     void error(std::string message = "unknown"){
         Color::start(RED);
-        std::cout << " Error: " << message << "\n";
+        std::cout << m_name << " Error: " << message << "\n";
         Color::end();
         m_error_number++;
     }
     //throw warning
     void warning(int line, std::string message){
         Color::start(YELLOW);
-        std::cout << "Line " << line << " Warning: " << message << "\n";
+        std::cout << "Line " << line+1 << " "<< m_name <<" Warning: " << message << "\n";
         Color::end();
         m_warning_number++;
     }
     void warning(std::string message){
         Color::start(YELLOW);
-        std::cout << " Warning: " << message << "\n";
+        std::cout <<  m_name <<" Warning: " << message << "\n";
         Color::end();
         m_warning_number++;
     }
     //throw error and exit
     void fatalError(int line, std::string message = "unknown"){
-        std::cerr << "Line " << line << " Error: " << message << "\n";
+        std::cerr << "Line " << line+1 << "Fatal Error: " << message << "\n";
         exit(1);
     }
     void fatalError(std::string message = "unknown"){
-        std::cerr << " Error: " << message << "\n";
+        std::cerr << "Fatal Error: " << message << "\n";
         exit(1);
     }
     //get number of errors
