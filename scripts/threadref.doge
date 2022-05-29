@@ -1,0 +1,12 @@
+#import SL;
+#import Thread;
+
+function inc(i){
+ &i = &i+1;
+}
+
+int a = 1;
+int id = thread(inc,&a);
+
+getThread(id);
+print(a);
