@@ -363,6 +363,7 @@ private:
         if(float* number =std::get_if<float>(&in)){return std::to_string(*number);}
         if(int* number =std::get_if<int>(&in)){return std::to_string(*number);}
         if(bool* b =std::get_if<bool>(&in)){return std::to_string(*b);}
+        if(ClassObject* b =std::get_if<ClassObject>(&in)){return b->m_class.m_name + " object";}
         if(std::get_if<null_object>(&in)){ return "null";};
         m_error_handler->error(line,"Cannot convert to string.");
         return "";
