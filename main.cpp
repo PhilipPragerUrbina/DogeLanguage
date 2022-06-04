@@ -8,9 +8,13 @@
 #include "Parser.hpp"
 #include "Printers.hpp"
 #include "Interpreter.hpp"
+#include "IRCompiler.hpp"
 
 #include <windows.h>
+
+
 int main(int argc, char* args[]) {
+
     //enable colors
     system(("chcp " + std::to_string(CP_UTF8)).c_str());
 
@@ -88,6 +92,7 @@ int main(int argc, char* args[]) {
     DotFileGenerator graph;
     graph.print(statements);
 
+/*
     //interpret
     Interpreter runtime;
 
@@ -96,16 +101,41 @@ int main(int argc, char* args[]) {
 
     std::string out = runtime.run(statements,&error_handler);
 
+      //check for errors
+    if(error_handler.hasErrors()){
+        return 1;
+    }
+
+      Color::start(GREEN);
+    std::cout<<"\n \n Exited with: " << out << " \n";
+    Color::end();
+*/
+
+    //compile
+    std::cout << "\n Compiling... \n" ;
+    IRCompiler compiler;
+    compiler.compile(statements,&error_handler);
+
     //check for errors
     if(error_handler.hasErrors()){
         return 1;
     }
 
+    //output
+    std::cout << "\n Compile output: \n \n" ;
+    compiler.print();
+    std::cout << "\n Optimizing... \n" ;
+    compiler.optimize();
+
+    std::cout << "\n optimize output: \n \n" ;
+    compiler.print();
+
+    compiler.output();
 
 
-    Color::start(GREEN);
-    std::cout<<"\n \n Exited with: " << out << " \n";
-    Color::end();
+
+
+
 
     return 0;
 }

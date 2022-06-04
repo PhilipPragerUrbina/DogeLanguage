@@ -7,6 +7,8 @@
 #include <vector>
 #include <unordered_map>
 #include <variant>
+#include <llvm/IR/Value.h>
+#include <llvm/IR/Instructions.h>
 #include "ErrorHandler.hpp"
 
 //types
@@ -55,7 +57,7 @@ struct Signal{
 };
 
 //generic object with all supported types
-typedef std::variant<int, float, std::string, bool, null_object, Callable,Reference,Class, ClassObject, Signal> object;
+typedef std::variant<int, float, std::string, bool, null_object, Callable,Reference,Class, ClassObject, Signal, llvm::Value*, llvm::Function*, llvm::AllocaInst*> object;
 
 //function pointer
 typedef object (*callPointer)( Interpreter* ,std::vector<object>);

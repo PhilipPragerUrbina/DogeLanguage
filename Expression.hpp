@@ -34,27 +34,28 @@ class IncludeStatement;
 //using visitor pattern
 class Visitor {
 public:
-    virtual  object visitBinaryExpression(Binary* expression){return 0;};
-    virtual  object visitGroupingExpression(Grouping* expression){return 0;};
-    virtual  object visitLiteralExpression(Literal* expression){return 0;};
-    virtual  object visitUnaryExpression(Unary* expression){return 0;};
-    virtual object visitExpressionStatement(ExpressionStatement* statement){return 0;};
-    virtual  object visitVariableExpression(Variable* expression){return 0;};
-    virtual  object visitLogicExpression(Logic* expression){return 0;};
-    virtual  object visitVariableStatement(VariableStatement* statement){return 0;};
-    virtual  object visitBlockStatement(BlockStatement* statement){return 0;};
-    virtual  object visitAssignExpression(Assign* expression){return 0;};
-    virtual  object visitIfStatement(IfStatement* statement){return 0;};
-    virtual  object visitFunctionStatement(FunctionStatement* statement){return 0;};
-    virtual object visitWhileStatement(WhileStatement* statement){return 0;};
-    virtual object visitCallExpression(Call* expression){return 0;};
-    virtual object visitReturnStatement(ReturnStatement* statement){return 0;};
-    virtual object visitClassStatement(ClassStatement* statement){return 0;};
-    virtual object visitImportStatement(ImportStatement* statement){return 0;};
-    virtual object visitIncludeStatement(IncludeStatement* statement){return 0;};
-    virtual object visitPointerExpression(Pointer* expression){return 0;}
-    virtual object visitGetExpression(Get* expression){return 0;}
-    virtual object visitSetExpression(Set* expression){return 0;}
+    std::string m_visitor_name = "Unknown";
+    virtual  object visitBinaryExpression(Binary* expression){std::cout << m_visitor_name << " visitBinaryExpression" << " not implemented \n"; return 0;};
+    virtual  object visitGroupingExpression(Grouping* expression){std::cout << m_visitor_name << " visitGroupingExpression" << " not implemented \n"; return 0;};
+    virtual  object visitLiteralExpression(Literal* expression){std::cout << m_visitor_name << " visitLiteralExpression" << " not implemented \n";return 0;};
+    virtual  object visitUnaryExpression(Unary* expression){std::cout << m_visitor_name << " visitUnaryExpression" << " not implemented \n";return 0;};
+    virtual object visitExpressionStatement(ExpressionStatement* statement){std::cout << m_visitor_name << " visitExpressionStatement " << " not implemented \n";return 0;};
+    virtual  object visitVariableExpression(Variable* expression){std::cout << m_visitor_name << " visitVariableExpression " << " not implemented \n";return 0;};
+    virtual  object visitLogicExpression(Logic* expression){std::cout << m_visitor_name << " visitLogicExpression " << " not implemented \n";return 0;};
+    virtual  object visitVariableStatement(VariableStatement* statement){std::cout << m_visitor_name << " visitVariableStatement " << " not implemented \n";return 0;};
+    virtual  object visitBlockStatement(BlockStatement* statement){std::cout << m_visitor_name << " visitBlockStatement " << " not implemented \n";return 0;};
+    virtual  object visitAssignExpression(Assign* expression){std::cout << m_visitor_name << " visitAssignExpression " << " not implemented \n";return 0;};
+    virtual  object visitIfStatement(IfStatement* statement){std::cout << m_visitor_name << " visitIfStatement " << " not implemented \n";return 0;};
+    virtual  object visitFunctionStatement(FunctionStatement* statement){std::cout << m_visitor_name << " visitFunctionStatement " << " not implemented \n";return 0;};
+    virtual object visitWhileStatement(WhileStatement* statement){std::cout << m_visitor_name << " visitWhileStatement " << " not implemented \n";return 0;};
+    virtual object visitCallExpression(Call* expression){std::cout << m_visitor_name << " visitCallExpression " << " not implemented \n";return 0;};
+    virtual object visitReturnStatement(ReturnStatement* statement){std::cout << m_visitor_name << " visitReturnStatement " << " not implemented \n";return 0;};
+    virtual object visitClassStatement(ClassStatement* statement){std::cout << m_visitor_name << " visitClassStatement " << " not implemented \n";return 0;};
+    virtual object visitImportStatement(ImportStatement* statement){std::cout << m_visitor_name << " visitImportStatement " << " not implemented \n";return 0;};
+    virtual object visitIncludeStatement(IncludeStatement* statement){std::cout << m_visitor_name << " visitIncludeStatement " << " not implemented \n";return 0;};
+    virtual object visitPointerExpression(Pointer* expression){std::cout << m_visitor_name << " visitPointerExpression " << " not implemented \n";return 0;}
+    virtual object visitGetExpression(Get* expression){std::cout << m_visitor_name << " visitGetExpression " << " not implemented \n";return 0;}
+    virtual object visitSetExpression(Set* expression){std::cout << m_visitor_name << " visitSetExpression " << " not implemented \n";return 0;}
 };
 
 //base class

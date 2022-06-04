@@ -72,7 +72,7 @@ private:
     //#import SL; or #include "/new.doge";
     Statement* importDeclaration(){
         if(match({IMPORT})){
-            Token name = consume(IDENTIFIER, "Expected import name.");
+            Token name = consume(IDENTIFIER, "Expected import m_visitor_name.");
             consume(SEMICOLON, "Expected ; after import.");
             return new ImportStatement(name, getLine());
         }
@@ -87,15 +87,15 @@ private:
 
     //class cake{}
     Statement* classDeclaration(){
-        Token name = consume(IDENTIFIER, "Expected class name.");
-        consume(LEFT_BRACE, "Expected { class name.");
+        Token name = consume(IDENTIFIER, "Expected class m_visitor_name.");
+        consume(LEFT_BRACE, "Expected { class m_visitor_name.");
         statementList body = block();
         return new ClassStatement(name,body, getLine());
     }
 
     //var foo = bar; or var foo;
     Statement* variableDeclaration(bool constant = false){
-        Token name = consume(IDENTIFIER, "Expected variable name.");
+        Token name = consume(IDENTIFIER, "Expected variable m_visitor_name.");
         if(check(LEFT_PAREN)){return functionDeclaration(name);}
 
         Expression* initializer = nullptr;
@@ -107,11 +107,11 @@ private:
     }
     //var a(b,c){}
     Statement* functionDeclaration(Token name){
-        consume(LEFT_PAREN, "Expected ( after function name.");
+        consume(LEFT_PAREN, "Expected ( after function m_visitor_name.");
         std::vector<Token> parameters;
         if (!check(RIGHT_PAREN)) {
             do {
-                parameters.push_back(consume(IDENTIFIER, "Expected parameter name."));
+                parameters.push_back(consume(IDENTIFIER, "Expected parameter m_visitor_name."));
             } while (match({COMMA}));
         }
         consume(RIGHT_PAREN, "Expected ) after parameters.");
@@ -328,7 +328,7 @@ private:
             left = callFinalize(left);}
             else if(match({DOT})){
                 Token name = consume(IDENTIFIER,
-                                     "Expected property name");
+                                     "Expected property m_visitor_name");
                 left = new Get(left,name, getLine());
             }else{
                 break;
