@@ -12,6 +12,7 @@ class DotFileGenerator : public Visitor{
 public:
     //output tree
     void print(statementList statements) {
+       m_visitor_name = "Dot File Printer";
         std::cout << "\n digraph G { \n"; //Graph vis syntax
         //for each nod in tree
         for(Statement* statement:statements){
@@ -123,7 +124,7 @@ private:
 
     void createNode(std::string name, std::vector<Expression*> children,std::vector<Statement*> s_children = {}){
         m_id ++; //increment id
-        name = std::to_string(m_id) + ": " + name; //make sure name is unique
+        name = std::to_string(m_id) + ": " + name; //make sure m_visitor_name is unique
         if(!m_prev.empty()){std::cout << "\"" + m_prev[m_prev.size()-1] + "\" -> \"" + name + "\"; \n";}else{
             std::cout << "\" program \" -> \"" + name + "\"; \n";
         } //output node if parent has been created

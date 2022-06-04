@@ -47,13 +47,13 @@ public:
 
     }
     //run a function with params
-    void runThread(Callable call, Environment* top_env, std::vector<object> args, object* out) {
+    void runThread(Callable call, Environment* top_env, std::vector<object> args) {
         m_threaded = true;
         m_error_handler = new ErrorHandler("Thread");
         m_environment = top_env;
         m_top = m_environment;
         call.m_declaration->accept(this);
-        *out =  callDeclaration(&call,args);
+        callDeclaration(&call,args);
     }
 
     //statements
@@ -63,6 +63,9 @@ public:
         }
         if(statement->m_name.original == "Thread"){
             createThreadingLibrary(m_environment);
+        }
+        if(statement->m_name.original == "Random"){
+            createRandomLibrary(m_environment);
         }
         return null_object();
     }
@@ -419,7 +422,6 @@ private:
     static void createThreadingLibrary(Environment* env){
         //keep track of threads
         static std::vector<std::thread> running;
-        static std::vector<object> outputs;
 
         //run a standalone function in new thread. Effectively detach
         env->define("fork",  Callable(1,[](Interpreter* runtime, std::vector<object> args) {
@@ -435,21 +437,17 @@ private:
             //create function args
             std::vector<object> new_args = args;
             new_args.erase(new_args.begin());   //same as thread call args except first
-            outputs.push_back(null_object());
-            object* out = &outputs[outputs.size()-1]; //get output of thread
             //keep track of thread
-            running.push_back(std::thread{ &Interpreter::runThread,new_runtime ,to_run,runtime->m_top->copy(), new_args,out});
+            running.push_back(std::thread{ &Interpreter::runThread,new_runtime ,to_run,runtime->m_top->copy(), new_args});
             return object((int)running.size()-1);
         }));
 
-        //Join equivalent sync and get thread output from id
+        //Join equivalent sync from id
         env->define("getThread",Callable(1,[](Interpreter* runtime, std::vector<object> args) {
            int id = runtime->getInt(args[0]);
            running[id].join();
-           object out = outputs[id];
            running.erase(running.begin() + id);
-           outputs.erase(outputs.begin()+id);
-            return object(out);
+            return object(null_object());
         }));
 
         //wait for milliseconds
@@ -475,6 +473,23 @@ private:
             running.clear();
             return object(number);
         }));
+
+    }
+    //random lib
+    static void createRandomLibrary(Environment* env){
+
+        env->define("RandomFloat",  Callable(0,[](Interpreter* runtime, std::vector<object> args) {
+            float random = rand();
+            return object((random));
+        }));
+
+        env->define("RandomInt",  Callable(2,[](Interpreter* runtime, std::vector<object> args) {
+            int min = runtime->getInt(args[0]);
+            int max = runtime->getInt(args[1]);
+            int random = rand()%(max-min + 1) + min;
+            return object(random);
+        }));
+
 
     }
 };
