@@ -71,23 +71,16 @@ public:
     void optimize(){
         // Create a new pass manager attached to it.
         llvm::legacy::FunctionPassManager optimizer(&m_module);
-        // simple optimizations
-      optimizer.add(llvm::createInstructionCombiningPass());
-        // Associate expressions.
-        optimizer.add(llvm::createReassociatePass());
-        // Eliminate common Sub Expressions.
-        optimizer.add(llvm::createGVNPass());
-        // Simplify the control flow graph
-        optimizer.add(llvm::createCFGSimplificationPass());
-
         // Promote allocas to registers.
         optimizer.add(llvm::createPromoteMemoryToRegisterPass());
 // Do simple "peephole" optimizations and bit-twiddling optzns.
         optimizer.add(llvm::createInstructionCombiningPass());
 // Reassociate expressions.
         optimizer.add(llvm::createReassociatePass());
-        optimizer.doInitialization();
+        // Eliminate common Sub Expressions.
+        optimizer.add(llvm::createGVNPass());
 
+        optimizer.doInitialization();
         for(llvm::Function* function : m_assembly){
             optimizer.run(*function);
         }
@@ -282,6 +275,16 @@ public:
         return function;
     }
 
+    object visitLogicExpression(Logic *expression){
+        llvm::Value* left =  std::get<llvm::Value*>(eval(expression->m_left));
+        llvm::Value* right = std::get<llvm::Value*>(eval(expression->m_right));
+        if(expression->m_operator_.type == OR){
+            return m_builder.CreateLogicalOr(left,right,"or");
+        }else{
+            return m_builder.CreateLogicalAnd(left,right,"and");
+        }
+
+    }
 
     object visitReturnStatement(ReturnStatement *statement){
 
@@ -370,13 +373,29 @@ public:
         //TODO add operator overloading
         switch (expression->m_operator_.type) {
             case BANG_EQUAL:
-                return 0;
+                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                    return m_builder.CreateFCmpUNE(left, right, "lessFloat");
+                }else{
+                    return m_builder.CreateICmpNE(left, right, "lessInt");
+                }
             case EQUAL_EQUAL:
-                return 0;
+                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                    return m_builder.CreateFCmpUEQ(left, right, "lessFloat");
+                }else{
+                    return m_builder.CreateICmpEQ(left, right, "lessInt");
+                }
             case GREATER:
-                return 0;
+                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                    return m_builder.CreateFCmpUGT(left, right, "lessFloat");
+                }else{
+                    return m_builder.CreateICmpUGT(left, right, "lessInt");
+                }
             case GREATER_EQUAL:
-                return 0;
+                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                    return m_builder.CreateFCmpUGE(left, right, "lessFloat");
+                }else{
+                    return m_builder.CreateICmpUGE(left, right, "lessInt");
+                }
             case LESS:
                 if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
                     return m_builder.CreateFCmpULT(left, right, "lessFloat");
@@ -384,7 +403,11 @@ public:
                     return m_builder.CreateICmpULT(left, right, "lessInt");
                 }
             case LESS_EQUAL:
-                return 0;
+                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                    return m_builder.CreateFCmpULE(left, right, "lessFloat");
+                }else{
+                    return m_builder.CreateICmpULE(left, right, "lessInt");
+                }
             case MINUS:
                 if(right->getType()->isFloatTy()){
                     return m_builder.CreateFSub(left, right, "subFloat");
