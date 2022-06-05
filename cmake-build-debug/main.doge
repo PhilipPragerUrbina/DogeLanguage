@@ -1,0 +1,28 @@
+//externals
+int printFloat(float a){}
+float inF(){}
+int printC(string a){}
+string toString(float a){}
+string concat(string a,string b){}
+
+
+//main function
+int DogeMain(){
+
+string test = concat("a thing is ", toString(42.0));
+printC(test);
+float a  = inF();
+
+
+if(a > 10.0 || a < 2.0){
+printC("Yes");
+return 1;
+}
+printC("No");
+
+
+return 0;
+
+}
+
+

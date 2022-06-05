@@ -63,8 +63,8 @@ private:
     //first declarations
     Statement* declaration(){
         if(match({HASH})){return importDeclaration();}
-        if(match({VAR})){return variableDeclaration();}
-        if(match({CONST})){   if(match({VAR})){return variableDeclaration(true);}}
+        if(match({VAR})){return variableDeclaration(false, m_tokens[m_current-1]);}
+        if(match({CONST})){   if(match({VAR})){return variableDeclaration(true,m_tokens[m_current-1]);}}
         if(match({CLASS})){return classDeclaration();}
         return statement();
     }
@@ -94,30 +94,33 @@ private:
     }
 
     //var foo = bar; or var foo;
-    Statement* variableDeclaration(bool constant = false){
+    Statement* variableDeclaration(bool constant,Token type){
         Token name = consume(IDENTIFIER, "Expected variable m_visitor_name.");
-        if(check(LEFT_PAREN)){return functionDeclaration(name);}
+        if(check(LEFT_PAREN)){return functionDeclaration(name,type);}
 
         Expression* initializer = nullptr;
         if(match({EQUAL})){
             initializer = expression();
         }
         consume(SEMICOLON, "Expected ; after expression.");
-        return new VariableStatement(initializer, name,constant, getLine());
+        return new VariableStatement(initializer, name,constant,type, getLine());
     }
     //var a(b,c){}
-    Statement* functionDeclaration(Token name){
+    Statement* functionDeclaration(Token name, Token type){
         consume(LEFT_PAREN, "Expected ( after function m_visitor_name.");
-        std::vector<Token> parameters;
+        std::vector<VariableStatement*> parameters;
         if (!check(RIGHT_PAREN)) {
             do {
-                parameters.push_back(consume(IDENTIFIER, "Expected parameter m_visitor_name."));
+                Token type = consume(VAR, "Expected parameter type");
+                Token name = consume(IDENTIFIER, "Expected parameter name");
+
+                parameters.push_back(new VariableStatement(nullptr,name,false,type,getLine()));
             } while (match({COMMA}));
         }
         consume(RIGHT_PAREN, "Expected ) after parameters.");
         consume(LEFT_BRACE, "Expected { after parameters.");
         statementList body = block();
-        return new FunctionStatement(name, parameters,body, getLine());
+        return new FunctionStatement(name, parameters,body, type, getLine());
     };
 
     //next match statements
@@ -164,7 +167,7 @@ private:
         consume(LEFT_PAREN, "Expected ( after for.");
         Statement* initializer = nullptr;
         if(match({VAR})){
-            initializer = variableDeclaration();
+            initializer = variableDeclaration(false,m_tokens[m_current-1]);
         }else{
             initializer = expressionStatement();
         }

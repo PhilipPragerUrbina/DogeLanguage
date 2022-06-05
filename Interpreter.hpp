@@ -324,7 +324,7 @@ private:
             environment = new Environment(m_top);
         }
         for (int i = 0; i < declaration->m_parameters.size(); i++) {
-            environment->define(declaration->m_parameters[i].original,
+            environment->define(declaration->m_parameters[i]->m_name.original,
                                arguments[i]);
         }
        return executeBlock(declaration->m_body, environment);

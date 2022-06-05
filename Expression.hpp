@@ -265,19 +265,21 @@ public:
 };
 class FunctionStatement : public Statement {
 public:
-    FunctionStatement(Token name, std::vector<Token> parameters, statementList body, int line) {
+    FunctionStatement(Token name, std::vector<VariableStatement*> parameters, statementList body,Token type, int line) {
         m_name = name;
         m_parameters = parameters;
         m_body = body;
         m_line = line;
+        m_type = type;
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitFunctionStatement(this);
     }
+    Token m_type;
     statementList m_body;
     Token m_name;
-    std::vector<Token> m_parameters;
+    std::vector<VariableStatement*> m_parameters;
 };
 class ClassStatement : public Statement {
 public:
@@ -334,16 +336,18 @@ public:
 
 class VariableStatement : public Statement {
 public:
-    VariableStatement(Expression* initializer, Token name, bool constant, int line) {
+    VariableStatement(Expression* initializer, Token name, bool constant, Token type, int line) {
         m_initializer = initializer;
         m_name = name;
         m_constant = constant;
         m_line = line;
+        m_type = type;
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitVariableStatement(this);
     }
+    Token m_type;
     bool m_constant;
     Expression* m_initializer;
     Token m_name;

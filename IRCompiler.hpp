@@ -224,22 +224,19 @@ public:
         }
 
 
-        //TODO set parameter and return types in parser
-        std::vector<llvm::Type*> types(statement->m_parameters.size(),
-                                   llvm::Type::getFloatTy(m_context));
-        //TODO remove this temporary fix once types are in
-        if(statement->m_name.original == "printC"){
-           types = std::vector<llvm::Type*>(statement->m_parameters.size(),
-                                            llvm::Type::getInt8PtrTy(m_context));
-
+        std::vector<llvm::Type*> types;
+        for(VariableStatement* param : statement->m_parameters){
+            types.push_back(getType(param->m_type));
         }
 
-        llvm::FunctionType *function_type = llvm::FunctionType::get(llvm::Type::getFloatTy(m_context), types, false);
+
+
+        llvm::FunctionType *function_type = llvm::FunctionType::get(getType(statement->m_type), types, false);
         function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, statement->m_name.original, m_module);
         //set names
         int x = 0;
         for (llvm::Argument& argument : function->args()){
-            argument.setName(statement->m_parameters[x++].original);
+            argument.setName(statement->m_parameters[x++]->m_name.original);
         }
 
         if(statement->m_body.empty()){
@@ -254,7 +251,7 @@ public:
 
         for (auto &Arg : function->args()){
 
-            llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(function, std::string(Arg.getName()));
+            llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(function, std::string(Arg.getName()),Arg.getType());
 
             // Store the initial value into the alloca.
             m_builder.CreateStore(&Arg, Alloca);
@@ -305,16 +302,16 @@ public:
     }
     object visitVariableStatement(VariableStatement* statement){
         llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
-        llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(parent, statement->m_name.original);
+        llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(parent, statement->m_name.original, getType(statement->m_type));
 
         m_environment->define(std::string(statement->m_name.original),  Alloca);
 
-        llvm::Value* value =  (llvm::Value*)llvm::ConstantFP::get(m_context, llvm::APFloat(0.0f));
 
         if(statement->m_initializer != nullptr){
-            value = std::get<llvm::Value*>(eval(statement->m_initializer));
+            llvm::Value* value = std::get<llvm::Value*>(eval(statement->m_initializer));
+            m_builder.CreateStore(value, Alloca);
         }
-        m_builder.CreateStore(value, Alloca);
+
 
 
         return null_object();
@@ -483,10 +480,10 @@ private:
     }
 
      llvm::AllocaInst *CreateEntryBlockAlloca(llvm::Function *TheFunction,
-                                              const std::string &VarName) {
+                                              const std::string &VarName,llvm::Type* type) {
         llvm::IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
                          TheFunction->getEntryBlock().begin());
-        return TmpB.CreateAlloca(llvm::Type::getFloatTy(m_context), 0,
+        return TmpB.CreateAlloca(type, 0,
                                  VarName.c_str());
     }
 
@@ -516,7 +513,25 @@ private:
         return "";
     }
 
+    llvm::Type* getType(Token type){
+        std::string type_name = type.original;
+       if(type_name == "bool"){
+           return llvm::Type::getInt8Ty(m_context);
+       }
+        else if(type_name == "int"){
+            return llvm::Type::getInt32Ty(m_context);
+        }
+       else if(type_name == "float"){
+           return llvm::Type::getFloatTy(m_context);
+       }
+       else if(type_name == "string"){
+           return llvm::Type::getInt8PtrTy(m_context);
+       }else{
+           m_error_handler->error("Unsupported type: " + type_name);
+       }
+        return llvm::Type::getFloatTy(m_context);
 
+    }
 
 
 
