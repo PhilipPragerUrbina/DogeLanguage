@@ -57,7 +57,7 @@ struct Signal{
 };
 
 //generic object with all supported types
-typedef std::variant<int, float, std::string, bool, null_object, Callable,Reference,Class, ClassObject, Signal, llvm::Value*, llvm::Function*, llvm::AllocaInst*> object;
+typedef std::variant<int, float, std::string, bool, null_object, Callable,Reference,Class, ClassObject, Signal, llvm::Value*, llvm::Function*, llvm::AllocaInst*, llvm::Type*> object;
 
 //function pointer
 typedef object (*callPointer)( Interpreter* ,std::vector<object>);
@@ -70,6 +70,8 @@ public:
         m_argument_number = args; m_call = func;
         m_declaration = declaration;
     }
+    std::string name;
+    std::string m_class = "";
     FunctionStatement* m_declaration;
     int m_argument_number;
     callPointer m_call;
@@ -88,7 +90,7 @@ enum TokenType {
     GREATER, GREATER_EQUAL,
     LESS, LESS_EQUAL,
     //literals
-    IDENTIFIER, STRING, INTEGER, FLOATING,
+    IDENTIFIER, STRING, INTEGER, FLOATING,EXTERN,
     //words.
     AND, CLASS, ELSE, FALSE, FOR, IF, NIL, OR,
     RETURN, SUPER, THIS, TRUE, VAR, WHILE,REFERENCE,CONST,BREAK, CONTINUE,HASH,IMPORT, INCLUDE,INC, DEC,
@@ -141,12 +143,14 @@ public:
         m_keywords[ "bool" ] = VAR;
         m_keywords[ "ptr" ] = VAR;
         m_keywords[ "pointer" ] = VAR;
+
         m_keywords[ "int" ] = VAR;
         m_keywords[ "float" ] = VAR;
         m_keywords[ "string" ] = VAR;
         m_keywords[ "while" ] = WHILE;
         m_keywords[ "include" ] = INCLUDE;
         m_keywords[ "import" ] = IMPORT;
+        m_keywords[ "extern" ] = EXTERN;
     }
 
     //scan text to create tokens

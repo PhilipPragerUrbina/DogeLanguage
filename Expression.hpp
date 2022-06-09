@@ -265,17 +265,19 @@ public:
 };
 class FunctionStatement : public Statement {
 public:
-    FunctionStatement(Token name, std::vector<VariableStatement*> parameters, statementList body,Token type, int line) {
+    FunctionStatement(Token name, std::vector<VariableStatement*> parameters, statementList body,Token type, int line, std::string class_name) {
         m_name = name;
         m_parameters = parameters;
         m_body = body;
         m_line = line;
         m_type = type;
+       m_class_name = class_name;
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitFunctionStatement(this);
     }
+    std::string m_class_name;
     Token m_type;
     statementList m_body;
     Token m_name;

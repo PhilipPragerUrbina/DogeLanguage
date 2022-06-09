@@ -6,6 +6,8 @@
 #define DLLEXPORT
 #endif
 
+
+//temporary standard library
 //print a char from a float
 extern "C" DLLEXPORT int putF(float X) {
     fputc((char)X, stdout);
@@ -14,6 +16,10 @@ extern "C" DLLEXPORT int putF(float X) {
 //print a constant string
 extern "C" DLLEXPORT int printC(char* chars) {
     std::cout << chars;
+    return 0;
+}
+extern "C" DLLEXPORT int newLine() {
+    std::cout << "\n";
     return 0;
 }
 //print a float
@@ -27,38 +33,38 @@ extern "C" DLLEXPORT float inF() {
     std::cin >> a;
     return a;
 }
+
+extern "C" DLLEXPORT int inI() {
+    int a = 0;
+    std::cin >> a;
+    return a;
+}
+//convert to string
 extern "C" DLLEXPORT const char* toString(float a) {
-    std::string out =  std::to_string(a);
-
-    char* ptr = new char[out.size() + 1]; // +1 for terminating NUL
-
-    // Copy source string in dynamically allocated string buffer
-    strcpy(ptr, out.c_str());
-
-    // Return the pointer to the dynamically allocated buffer
-    return ptr;
+    std::string* out =   new std::string(std::to_string(a));
+    return out->data();
 }
-
+extern "C" DLLEXPORT const char* toString_int(int a) {
+    std::string* out =   new std::string(std::to_string(a));
+    return out->data();
+}
+//add two strings
 extern "C" DLLEXPORT const char* concat(char* a,char* b) {
-    std::string out = (std::string(a)+std::string(b));
-
-    char* ptr = new char[out.size() + 1]; // +1 for terminating NUL
-
-    // Copy source string in dynamically allocated string buffer
-    strcpy(ptr, out.c_str());
-
-    // Return the pointer to the dynamically allocated buffer
-    return ptr;
+    std::string* out = new std::string((std::string(a)+std::string(b)));
+    return out->data();
 }
+
+
 
 //main function
 extern "C" {
 int DogeMain();
 }
+
 //run
 int main() {
     std::cout << "\n Running Doge:\n";
     int out = DogeMain();
-    std::cout << "Doge out:" <<out << "\n";
+    std::cout << "\n Doge out: " <<out << "\n";
     return out;
 }

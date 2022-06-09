@@ -57,16 +57,44 @@ private:
             m_error_handler->error(getLine(), message);
         }
     }
+    bool checkClass(){
+        if( m_tokens[m_current].type == IDENTIFIER && m_tokens[m_current+1].type == IDENTIFIER ) {
+            if (match({IDENTIFIER})) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     //grammar functions
 
     //first declarations
     Statement* declaration(){
         if(match({HASH})){return importDeclaration();}
-        if(match({VAR})){return variableDeclaration(false, m_tokens[m_current-1]);}
+        if(match({VAR}) || checkClass()){return variableDeclaration(false, m_tokens[m_current-1]);}
+
+        if(match({EXTERN})){   if(match({VAR})){return externDeclaration(m_tokens[m_current-1]);}}
         if(match({CONST})){   if(match({VAR})){return variableDeclaration(true,m_tokens[m_current-1]);}}
         if(match({CLASS})){return classDeclaration();}
         return statement();
+    }
+
+
+    Statement* externDeclaration(Token type){
+        Token name = consume(IDENTIFIER, "Expected extern m_visitor_name.");
+        consume(LEFT_PAREN, "Expected ( after extern m_visitor_name.");
+        std::vector<VariableStatement*> parameters;
+        if (!check(RIGHT_PAREN)) {
+            do {
+                Token param_type = consume(VAR, "Expected parameter type");
+                Token param_name = consume(IDENTIFIER, "Expected parameter name");
+
+                parameters.push_back(new VariableStatement(nullptr,param_name,false,param_type,getLine()));
+            } while (match({COMMA}));
+        }
+        consume(RIGHT_PAREN, "Expected ) after parameters.");
+        consume(SEMICOLON, "Expected ; after extern.");
+        return new FunctionStatement(name, parameters, {}, type, getLine(),in_class);
     }
 
     //#import SL; or #include "/new.doge";
@@ -85,11 +113,14 @@ private:
         return nullptr;
     }
 
+    std::string in_class = "";
     //class cake{}
     Statement* classDeclaration(){
         Token name = consume(IDENTIFIER, "Expected class m_visitor_name.");
         consume(LEFT_BRACE, "Expected { class m_visitor_name.");
+        in_class = name.original;
         statementList body = block();
+        in_class = "";
         return new ClassStatement(name,body, getLine());
     }
 
@@ -111,16 +142,17 @@ private:
         std::vector<VariableStatement*> parameters;
         if (!check(RIGHT_PAREN)) {
             do {
-                Token type = consume(VAR, "Expected parameter type");
-                Token name = consume(IDENTIFIER, "Expected parameter name");
+                match({IDENTIFIER, VAR});
+                Token param_type = m_tokens[m_current-1];
+                Token param_name = consume(IDENTIFIER, "Expected parameter name");
 
-                parameters.push_back(new VariableStatement(nullptr,name,false,type,getLine()));
+                parameters.push_back(new VariableStatement(nullptr,param_name,false,param_type,getLine()));
             } while (match({COMMA}));
         }
         consume(RIGHT_PAREN, "Expected ) after parameters.");
         consume(LEFT_BRACE, "Expected { after parameters.");
         statementList body = block();
-        return new FunctionStatement(name, parameters,body, type, getLine());
+        return new FunctionStatement(name, parameters,body, type, getLine(),in_class);
     };
 
     //next match statements

@@ -63,9 +63,7 @@ public:
 
     }
     void print(){
-       for(llvm::Function* function : m_assembly){
-           function->print(llvm::outs());
-       }
+        m_module.print(llvm::outs(), nullptr);
     }
 
     void optimize(){
@@ -142,7 +140,45 @@ public:
         system("output.exe");
     }
 
+object visitClassStatement(ClassStatement *statement){
 
+       // Class new_class(statement->m_name.original, new Environment(m_environment));
+    llvm::StructType* new_class = llvm::StructType::create(m_context,statement->m_name.original);
+
+    std::vector<llvm::Type*> types;
+    int id = 0;
+    for(Statement* member : statement->m_members){
+        VariableStatement* member_var = dynamic_cast<VariableStatement*>(member);
+        if(member_var != 0)
+        {
+            types.push_back(getType(member_var->m_type));
+            m_environment->define(statement->m_name.original + "_class_" + member_var->m_name.original,id);
+
+            object class_type =  m_environment->getValue(member_var->m_type.original + "_class");
+            if(!std::get_if<null_object>(&class_type)){
+                m_environment->define(statement->m_name.original + "_class_" + member_var->m_name.original + "_type",  member_var->m_type.original + "_class");
+            }
+
+
+
+            id++;
+        }
+    }
+    new_class->setBody(types);
+    m_environment->define(statement->m_name.original+ "_class",(llvm::Type*)new_class);
+
+    for(Statement* member : statement->m_members){
+        VariableStatement* member_var = dynamic_cast<VariableStatement*>(member);
+        if(member_var != 0)
+        {
+        }else{
+            //is a function
+            member->accept(this);
+        }
+    }
+
+        return null_object();
+    }
     object visitWhileStatement(WhileStatement* statement){
 
 
@@ -159,12 +195,6 @@ public:
 
         m_builder.CreateCondBr(condition, loop_block, after_block);
         m_builder.SetInsertPoint(after_block);
-        return null_object();
-    }
-    object visitAssignExpression(Assign *expression){
-        llvm::Value* value = std::get<llvm::Value*>(eval(expression->m_value));
-        llvm::Value *Variable =std::get<llvm::AllocaInst*>(m_environment->getValue(expression->m_name.original));
-        m_builder.CreateStore(value, Variable);
         return null_object();
     }
 
@@ -214,10 +244,23 @@ public:
 
         return null_object();
     }
+
     object visitFunctionStatement(FunctionStatement *statement) {
-        llvm::Function *function = m_module.getFunction(statement->m_name.original);
-        Callable callable =  Callable(statement->m_parameters.size(), nullptr,statement);
-        m_environment->define(statement->m_name.original,callable);
+        std::string name =  statement->m_name.original;
+        int size = statement->m_parameters.size();
+
+        if(statement->m_class_name != ""){
+            name = statement->m_class_name + "_class_" +  statement->m_name.original;
+            size++;
+        }
+
+        llvm::Function *function = m_module.getFunction(name);
+
+        Callable callable =  Callable(size, nullptr,statement);
+        callable.name = name;
+       callable.m_class = statement->m_class_name;
+
+        m_environment->define(name,callable);
 
         if (function){
             return function;
@@ -228,16 +271,32 @@ public:
         for(VariableStatement* param : statement->m_parameters){
             types.push_back(getType(param->m_type));
         }
+        if(statement->m_class_name != ""){
+            llvm::Type* class_type = std::get<llvm::Type*>(m_environment->getValue(statement->m_class_name + "_class"));
+            m_environment->define(name + "_type", statement->m_class_name + "_class")
+
+            ;
+            types.push_back(llvm::PointerType::get(class_type, 0));
+        }
 
 
 
         llvm::FunctionType *function_type = llvm::FunctionType::get(getType(statement->m_type), types, false);
-        function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, statement->m_name.original, m_module);
+        function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, name, m_module);
         //set names
         int x = 0;
         for (llvm::Argument& argument : function->args()){
-            argument.setName(statement->m_parameters[x++]->m_name.original);
+
+            if(x == function->arg_size()-1 && statement->m_class_name != ""){
+                argument.setName("this");
+
+            }else{
+                argument.setName(statement->m_parameters[x++]->m_name.original);
+            }
         }
+
+
+
 
         if(statement->m_body.empty()){
             return function;
@@ -249,7 +308,12 @@ public:
         Environment* environment;
         environment = new Environment(m_top);
 
+
+
         for (auto &Arg : function->args()){
+
+
+
 
             llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(function, std::string(Arg.getName()),Arg.getType());
 
@@ -257,6 +321,19 @@ public:
             m_builder.CreateStore(&Arg, Alloca);
 
             environment->define(std::string(Arg.getName()),  Alloca);
+
+            if(Arg.getType()->isStructTy()){
+                object class_type =  m_environment->getValue(Arg.getType()->getStructName().str() + "_class");
+                if(!std::get_if<null_object>(&class_type)){
+                    if(llvm::Type** class_def = std::get_if<llvm::Type*>(&class_type)){
+                        environment->define(Arg.getName().str()+ "_type",  Arg.getType()->getStructName().str() + "_class");
+                    }
+
+                }
+            }
+
+
+
         }
 
 
@@ -284,27 +361,143 @@ public:
     }
 
     object visitReturnStatement(ReturnStatement *statement){
-
-
         if(statement->m_value!= nullptr){
             object value = eval(statement->m_value);
             m_builder.CreateRet(std::get<llvm::Value*>(value));
         }else{
             m_builder.CreateRetVoid();
         }
-
-
         return null_object();
     }
 
     object visitBlockStatement(BlockStatement* statement){
         return executeBlock(statement->m_statements, new Environment(m_environment));
     }
+    object visitAssignExpression(Assign *expression){
+        llvm::Value* value = std::get<llvm::Value*>(eval(expression->m_value));
+        llvm::Value *Variable =std::get<llvm::AllocaInst*>(m_environment->getValue(expression->m_name.original));
+        m_builder.CreateStore(value, Variable);
+        return null_object();
+    }
+
+    llvm::Value * last_class = nullptr;
+    std::string last_var = "";
+
+    object visitGetExpression(Get *expression) {
+        object in = eval(expression->m_object);
+        llvm::Value *variable = last_obj;
+        std::string name =std::string( last_obj->getName());
+
+        if(last_var == "this"){
+            llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
+           auto fun_name = parent->getName();
+          last_var = fun_name.str();
+          variable = std::get<llvm::Value*>(in);
+
+        }
+        std::string class_name = std::get<std::string>(m_environment->getValue(last_var+"_type"));
+        last_class = variable;
+        object index_obj = m_environment->getValue(class_name + "_" + expression->m_name.original);
+        int index;
+        if(int* index_temp = std::get_if<int>(&index_obj)){
+            index = *index_temp;
+        }else{
+            //is call
+            return m_environment->getValue(class_name + "_" +  expression->m_name.original);
+        }
+
+
+        llvm::Value* member_index = llvm::ConstantInt::get(m_context, llvm::APInt(32, index /*The index of the member*/, true));
+
+
+        last_var = class_name + "_" + expression->m_name.original;
+
+
+        std::vector<llvm::Value*> indices(2);
+        indices[0] = llvm::ConstantInt::get(m_context, llvm::APInt(32, 0, true));
+        indices[1] = member_index;
+        object class_type =  m_environment->getValue(class_name);
+        std::cout << "Test: " << variable->getType()->isPointerTy();
+        if(!std::get_if<null_object>(&class_type)) {
+            if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+                llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, variable, indices,
+                                                              expression->m_name.original.c_str());
+                last_obj = (llvm::AllocaInst*)member_ptr;
+                return (llvm::Value*)m_builder.CreateLoad(((llvm::StructType*)*class_def)->getElementType(index),member_ptr, expression->m_name.original + "loaded");
+            }
+
+        }
+        return null_object();
+
+    }
+    llvm::AllocaInst* last_obj;
+    object visitSetExpression(Set *expression) {
+        object in = eval(expression->m_obj);
+        llvm::Value *variable = last_obj;
+        std::string class_name = std::get<std::string>(m_environment->getValue(last_var+"_type"));
+
+
+        if(last_var == "this"){
+            llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
+            auto fun_name = parent->getName();
+            last_var = fun_name.str();
+            variable = std::get<llvm::Value*>(in);
+
+        }
+        int index =std::get<int>( m_environment->getValue(class_name + "_" + expression->m_name.original));
+        llvm::Value* member_index = llvm::ConstantInt::get(m_context, llvm::APInt(32, index /*The index of the member*/, true));
+        llvm::Value* value = std::get<llvm::Value*>(eval(expression->m_value));
+
+
+        std::vector<llvm::Value*> indices(2);
+        indices[0] = llvm::ConstantInt::get(m_context, llvm::APInt(32, 0, true));
+        indices[1] = member_index;
+        object class_type =  m_environment->getValue(class_name);
+
+        if(!std::get_if<null_object>(&class_type)) {
+            if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+                llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, variable, indices,
+                                                              expression->m_name.original.c_str());
+                last_obj = (llvm::AllocaInst*)member_ptr;
+                m_builder.CreateStore(value, member_ptr);
+            }
+
+        }
+        return null_object();
+
+
+
+
+
+    }
+
     object visitVariableStatement(VariableStatement* statement){
         llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
+
+        object class_type =  m_environment->getValue(statement->m_type.original + "_class");
+
+        if(!std::get_if<null_object>(&class_type)){
+            if(llvm::Type** class_def = std::get_if<llvm::Type*>(&class_type)){
+
+                llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(parent,statement->m_name.original,*class_def);
+                m_environment->define(statement->m_name.original,  Alloca);
+                m_environment->define(statement->m_name.original + "_type",  statement->m_type.original + "_class");
+
+                return null_object();
+            }
+
+        }
+
+
+
+
+
+
         llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(parent, statement->m_name.original, getType(statement->m_type));
 
         m_environment->define(std::string(statement->m_name.original),  Alloca);
+
+
 
 
         if(statement->m_initializer != nullptr){
@@ -327,31 +520,116 @@ public:
     object visitCallExpression(Call* expression) {
         // Look up the name in the global module table.
         Callable callee = std::get<Callable> (eval(expression->m_callee));
-        llvm::Function *callee_function = m_module.getFunction(callee.m_declaration->m_name.original);
+        llvm::Function *callee_function = m_module.getFunction( callee.name);
+
+
+
         if (!callee_function){
             m_error_handler->error(expression->m_line,"Unknown function: " + callee.m_declaration->m_name.original);
             return 0;
         }
-        if (callee_function->arg_size() != expression->m_arguments.size()){
-            m_error_handler->error(expression->m_line,"Not correct argument number, function:  " + callee.m_declaration->m_name.original + " expects: " +
-                    std::to_string(callee_function->arg_size()) + " not " + std::to_string(expression->m_arguments.size()));
-            return 0;
-        }
+
+
+
         std::vector<llvm::Value* > arguments;
         for (Expression* argument : expression->m_arguments) {
             arguments.push_back(std::get<llvm::Value*>(eval(argument)));
+        }
+
+        if(callee.m_class != "") {
+
+            arguments.push_back(last_class);
+        }
+
+
+
+
+        if (callee_function->arg_size() != arguments.size()){
+            m_error_handler->error(expression->m_line,"Not correct argument number, function:  " + callee.m_declaration->m_name.original + " expects: " +
+                                                      std::to_string(callee_function->arg_size()) + " not " + std::to_string(expression->m_arguments.size()));
+            return 0;
         }
         return (llvm::Value* )m_builder.CreateCall(callee_function, arguments, "call");
     }
 
 
 
-
     object visitVariableExpression(Variable* expression){
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        object this_in = m_environment->getValue("this");
+      if(!std::get_if<null_object>(&this_in)){
+
+          llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
+          auto fun_name = parent->getName();
+          last_var = fun_name.str();
+          llvm::AllocaInst* var = std::get<llvm::AllocaInst*>(this_in);
+              last_obj = var;
+              llvm::Value* variable =  (llvm::Value*)m_builder.CreateLoad(var->getAllocatedType(),var, "this");
+
+
+
+
+          std::string class_name = std::get<std::string>(m_environment->getValue(last_var+"_type"));
+          last_class = variable;
+          object index_obj = m_environment->getValue(class_name + "_" + expression->m_name.original);
+          if(!std::get_if<null_object>(&index_obj)) {
+              int index;
+              if(int* index_temp = std::get_if<int>(&index_obj)){
+                  index = *index_temp;
+              }else{
+                  //is call
+                  return m_environment->getValue(class_name + "_" +  expression->m_name.original);
+              }
+
+
+              llvm::Value* member_index = llvm::ConstantInt::get(m_context, llvm::APInt(32, index /*The index of the member*/, true));
+
+
+              last_var = class_name + "_" + expression->m_name.original;
+
+
+              std::vector<llvm::Value*> indices(2);
+              indices[0] = llvm::ConstantInt::get(m_context, llvm::APInt(32, 0, true));
+              indices[1] = member_index;
+              object class_type =  m_environment->getValue(class_name);
+              std::cout << "Test: " << variable->getType()->isPointerTy();
+              if(!std::get_if<null_object>(&class_type)) {
+                  if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+                      llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, variable, indices,
+                                                                    expression->m_name.original.c_str());
+                      last_obj = (llvm::AllocaInst *) member_ptr;
+                      return (llvm::Value *) m_builder.CreateLoad(((llvm::StructType *) *class_def)->getElementType(index),
+                                                                  member_ptr, expression->m_name.original + "loaded");
+                  }
+              }
+          }
+          }
+
+
+
         object in =  m_environment->getValue(expression->m_name.original);
 
+        last_var = expression->m_name.original;
+
         if( llvm::AllocaInst** val = std::get_if< llvm::AllocaInst* >(&in)){
+
             llvm::AllocaInst* value = *val;
+                last_obj = value;
             return (llvm::Value*)m_builder.CreateLoad(value->getAllocatedType(),value, expression->m_name.original.c_str());
 
         }else{
@@ -370,66 +648,78 @@ public:
         //TODO add operator overloading
         switch (expression->m_operator_.type) {
             case BANG_EQUAL:
-                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
                     return m_builder.CreateFCmpUNE(left, right, "lessFloat");
-                }else{
+                } else {
                     return m_builder.CreateICmpNE(left, right, "lessInt");
                 }
             case EQUAL_EQUAL:
-                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
                     return m_builder.CreateFCmpUEQ(left, right, "lessFloat");
-                }else{
+                } else {
                     return m_builder.CreateICmpEQ(left, right, "lessInt");
                 }
             case GREATER:
-                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
                     return m_builder.CreateFCmpUGT(left, right, "lessFloat");
-                }else{
+                } else {
                     return m_builder.CreateICmpUGT(left, right, "lessInt");
                 }
             case GREATER_EQUAL:
-                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
                     return m_builder.CreateFCmpUGE(left, right, "lessFloat");
-                }else{
+                } else {
                     return m_builder.CreateICmpUGE(left, right, "lessInt");
                 }
             case LESS:
-                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
                     return m_builder.CreateFCmpULT(left, right, "lessFloat");
-                }else{
+                } else {
                     return m_builder.CreateICmpULT(left, right, "lessInt");
                 }
             case LESS_EQUAL:
-                if(left->getType()->isFloatTy() && right->getType()->isFloatTy()){
+                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
                     return m_builder.CreateFCmpULE(left, right, "lessFloat");
-                }else{
+                } else {
                     return m_builder.CreateICmpULE(left, right, "lessInt");
                 }
             case MINUS:
-                if(right->getType()->isFloatTy()){
+                if (right->getType()->isFloatTy()) {
                     return m_builder.CreateFSub(left, right, "subFloat");
-                }else{
+                } else {
                     return m_builder.CreateSub(left, right, "subInt");
                 }
             case SLASH:
                 //check if zero
-                if(right->getType()->isFloatTy()){
+                if (right->getType()->isFloatTy()) {
                     return m_builder.CreateFDiv(left, right, "divFloat");
-                }else{
+                } else {
                     return m_builder.CreateUDiv(left, right, "divInt");
                 }
             case STAR:
-                if(right->getType()->isFloatTy()){
+                if (right->getType()->isFloatTy()) {
                     return m_builder.CreateFMul(left, right, "mulFloat");
-                }else{
+                } else {
                     return m_builder.CreateMul(left, right, "mulInt");
                 }
             case PLUS:
-                if(right->getType()->isFloatTy()){
+                if (right->getType()->isFloatTy()) {
                     return m_builder.CreateFAdd(left, right, "addFloat");
-                }else{
+                } else if (right->getType() == llvm::Type::getInt8PtrTy(m_context) && left->getType() == llvm::Type::getInt8PtrTy(m_context)) {
+                        // string
+                    llvm::Function *callee_function = m_module.getFunction( "concat");
+                    if (!callee_function){
+                        m_error_handler->error(expression->m_line,"Standard library concat is needed to combine strings!");
+                    }
+                    std::vector<llvm::Value* > arguments;
+                    arguments.push_back(left);
+                    arguments.push_back(right);
+                    //temporarily using c++ implemented wrapper to combine strings until proper library and array support is added.
+                    return (llvm::Value* )m_builder.CreateCall(callee_function, arguments, "string_combine");
+                } else {
                     return m_builder.CreateAdd(left, right, "addInt");
                 }
+
 
         }
         m_error_handler->error(expression->m_line,"Not a binary type for: " + expression->m_operator_.original);
@@ -440,9 +730,10 @@ public:
         return eval(expression->m_expression);
     };
     object visitLiteralExpression(Literal* expression){
-        if(int* number =std::get_if<int>(& expression->m_value)){return llvm::ConstantInt::get(m_context, llvm::APInt(sizeof(int),*number));}
+        if(int* number =std::get_if<int>(& expression->m_value)){return llvm::ConstantInt::get(m_context, llvm::APInt(32,*number));}
         if(float* number =std::get_if<float>(& expression->m_value)){return llvm::ConstantFP::get(m_context, llvm::APFloat(*number));}
-        if(bool* boolean =std::get_if<bool>(& expression->m_value)){return llvm::ConstantInt::get(m_context, llvm::APInt(sizeof(int),(int)*boolean));}
+        if(bool* boolean =std::get_if<bool>(& expression->m_value)){return llvm::ConstantInt::get(m_context, llvm::APInt(32,(int)*boolean));}
+
      //   if(std::string* s =std::get_if<std::string>(& expression->m_value)){return llvm::ConstantFP::get(m_context, llvm::APFloat((float)(s->at(0))));}
 
         if(std::string* s =std::get_if<std::string>(& expression->m_value)){
@@ -526,10 +817,19 @@ private:
        }
        else if(type_name == "string"){
            return llvm::Type::getInt8PtrTy(m_context);
-       }else{
-           m_error_handler->error("Unsupported type: " + type_name);
        }
+        object class_type =  m_environment->getValue(type.original + "_class");
+        if(!std::get_if<null_object>(&class_type)){
+            if(llvm::Type** class_def = std::get_if<llvm::Type*>(&class_type)){
+
+
+                return *class_def;
+            }
+
+        }
+        m_error_handler->error("Unsupported type: " + type_name);
         return llvm::Type::getFloatTy(m_context);
+
 
     }
 
