@@ -40,8 +40,14 @@ public:
     }
     object visitFunctionStatement(FunctionStatement *statement) {
         Callable function =  Callable(statement->m_parameters.size(), nullptr,statement);
+
         m_top->define(statement->m_name.original + "_function",function);
-        m_environment->define(statement->m_name.original ,statement->m_name.original + "_function");
+        std::string name = statement->m_name.original;
+        if(name == statement->m_class_name){
+            name = name + "_constructor";
+        }
+
+        m_environment->define(name ,statement->m_name.original + "_function");
         if(statement->m_body.empty()){
             return (std::string)"null";
         }
@@ -130,6 +136,18 @@ public:
         std::string callee = evalS(expression->m_callee);
         object callee_obj = m_environment->getValue(callee);
 
+        //if class check constructor
+        std::string class_return = "";
+        if(Class* class_type = std::get_if<Class>(&callee_obj)) {
+            class_return =  class_type->m_name;
+            callee_obj = m_environment->getValue(class_type->m_name + "_function");
+            if(expression->m_arguments.empty()){
+                //ignore default constructor
+                if(std::get_if<null_object>(&callee_obj)){
+                    return  class_return;
+                }
+            }
+        }
         if(Callable* function = std::get_if<Callable>(&callee_obj)){
             int argument_number = 0;
 
@@ -149,9 +167,13 @@ public:
             if (argument_number != function->m_argument_number) {
                 m_error_handler->error("Not enough function arguments: " + std::to_string(argument_number) + " expected: " +
                                        std::to_string(function->m_argument_number));}
-
+        if(class_return != ""){
+            return class_return; //return constructor type
+        }
             return function->m_declaration->m_type.original;
         }
+
+
 
         m_error_handler->error(expression->m_line, "Can not call non callable.");
         return (std::string)"null";
@@ -185,9 +207,12 @@ public:
 
     object visitVariableExpression(Variable* expression){
         object value = m_environment->getValue(expression->m_name.original);
+        if(std::get_if<null_object>(&value)){
+            m_error_handler->error(expression->m_line,"Reference undefined: " + expression->m_name.original);
+            return (std::string)"null";
+        }
         if(Class* class_type = std::get_if<Class>(&value)){
-            ClassObject obj =  ClassObject(*class_type, class_type->m_environment->copy());
-            return obj;
+            return class_type->m_name;
         }
         return value;
     }

@@ -105,7 +105,7 @@ public:
         m_module.setTargetTriple(desired_target);
 
         //create output file
-        std::string filename = "build.o";
+        std::string filename = "output.o";
         auto file_type = llvm::CodeGenFileType::CGFT_ObjectFile;
         std::error_code stream_error;
         llvm::raw_fd_ostream dest(filename, stream_error, llvm::sys::fs::OF_None);
@@ -290,6 +290,10 @@ public:
         }
         //make body
         evalBlock(statement->m_body, environment);
+        //make sure a return is present
+        if(statement->m_type.original == "void"){
+            m_builder.CreateRetVoid();
+        }
         //validate
         llvm::verifyFunction(*function);
         return null_object();
@@ -404,8 +408,31 @@ public:
 
 
     object visitCallExpression(Call *expression) {
+        object callee_temp = eval(expression->m_callee);
+
+        //is class type. Call class constructor and return new instance
+        if(llvm::Type** class_type_temp = std::get_if<llvm::Type*>(&callee_temp)){
+            //create object instance
+            llvm::Type* class_type = *class_type_temp;
+            llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
+            llvm::AllocaInst *alloca_inst = blockAllocation(parent, "temp_class",class_type);
+            //get and run constructor if available
+            llvm::Function *constructor = m_module.getFunction(class_type->getStructName().str() + "_class_" + class_type->getStructName().str());
+            if (constructor) {
+                std::vector<llvm::Value *> arguments;
+                for (Expression *argument: expression->m_arguments) {
+                    arguments.push_back(std::get<llvm::Value *>(eval(argument)));
+                }
+                arguments.push_back(alloca_inst);
+                m_builder.CreateCall(constructor, arguments);
+            }
+            //return object
+            return (llvm::Value *) m_builder.CreateLoad((llvm::StructType *)class_type,alloca_inst, "temp_class_constructor_loaded");
+        }
+
         // Look up the name in the global module table.
-        Callable callee = std::get<Callable>(eval(expression->m_callee));
+        Callable callee = std::get<Callable>(callee_temp);
+
         llvm::Function *callee_function = m_module.getFunction(callee.name);
         if (!callee_function) {m_error_handler->error(expression->m_line, "Unknown function: " + callee.m_declaration->m_name.original);return null_object();}
 
@@ -478,13 +505,20 @@ public:
 
         }else{
             m_last_variable_name = expression->m_name.original;
+            //check if class type for calling constructors
+            object class_type =  m_environment->getValue(expression->m_name.original + "_class");
+            if(!std::get_if<null_object>(&class_type)){
+                return class_type;
+            }
+            //else just return variable, probably a function
             return desired_variable;
         }
     }
 
     object visitAssignExpression(Assign *expression) {
         llvm::Value *value = std::get<llvm::Value *>(eval(expression->m_value));
-        llvm::Value *variable = std::get<llvm::AllocaInst *>(m_environment->getValue(expression->m_name.original));
+        Variable(expression->m_name,expression->m_line,false).accept(this);
+        llvm::Value *variable = m_last_pointer;
         m_builder.CreateStore(value, variable);
         return null_object();
     }
@@ -675,6 +709,9 @@ private:
             return llvm::Type::getFloatTy(m_context);
         } else if (type_name == "string") {
             return llvm::Type::getInt8PtrTy(m_context);
+        }
+        else if (type_name == "void") {
+            return llvm::Type::getVoidTy(m_context);
         }
         //might be class
         object class_type = m_environment->getValue(type.original + "_class");

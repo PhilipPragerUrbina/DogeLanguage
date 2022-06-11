@@ -143,7 +143,7 @@ public:
         m_keywords[ "bool" ] = VAR;
         m_keywords[ "ptr" ] = VAR;
         m_keywords[ "pointer" ] = VAR;
-
+        m_keywords[ "void" ] = VAR;
         m_keywords[ "int" ] = VAR;
         m_keywords[ "float" ] = VAR;
         m_keywords[ "string" ] = VAR;

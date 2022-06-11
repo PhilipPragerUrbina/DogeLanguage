@@ -15,11 +15,20 @@ int magnitude;
 }
 
 class point{
+
 scalar x;
 int y;
 int getX(){
 x.magnitude = this.x.magnitude  + 5;
+
 return x.magnitude;
+}
+
+void point(string message){
+printC(message);
+y = 3;
+
+
 }
 
 }
@@ -28,14 +37,14 @@ return x.magnitude;
 
 //main function
 int DogeMain(){
-
-point p;
+printC("aaaaaaaaaaaaaaa");
+point p = point("MEssage ina  BOTTTLEE!!!!!!!!!");
 scalar s;
 
 s.magnitude = 27;
 s.value = 2.22;
 
-p.y = 3;
+
 p.x = s;
 if(p.y == 3){
 printC("Enter sussy: ");
@@ -49,6 +58,7 @@ newLine();
 }else if(p.y == 4){
 printC("bbbbbbbbbbbbbb");
 }else{
+
 printC("cccccccc");
 }
 
