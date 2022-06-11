@@ -227,14 +227,14 @@ public:
     Set(Expression* value, Token name, Expression* obj, int line) {
         m_name = name;
         m_value = value;
-        m_obj = obj;
+        m_object = obj;
         m_line = line;
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitSetExpression(this);
     }
-    Expression* m_obj;
+    Expression* m_object;
     Token m_name;
     Expression* m_value;
 

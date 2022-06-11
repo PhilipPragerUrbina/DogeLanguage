@@ -33,6 +33,8 @@ private:
     std::vector<Token> m_tokens;
     //current token
     int m_current = 0;
+    //current class
+    std::string m_in_class = "";
 
     //checks
     //see if current token is of a list of type and go to next if it is
@@ -94,7 +96,7 @@ private:
         }
         consume(RIGHT_PAREN, "Expected ) after parameters.");
         consume(SEMICOLON, "Expected ; after extern.");
-        return new FunctionStatement(name, parameters, {}, type, getLine(),in_class);
+        return new FunctionStatement(name, parameters, {}, type, getLine(), m_in_class);
     }
 
     //#import SL; or #include "/new.doge";
@@ -113,14 +115,13 @@ private:
         return nullptr;
     }
 
-    std::string in_class = "";
     //class cake{}
     Statement* classDeclaration(){
         Token name = consume(IDENTIFIER, "Expected class m_visitor_name.");
         consume(LEFT_BRACE, "Expected { class m_visitor_name.");
-        in_class = name.original;
+        m_in_class = name.original;
         statementList body = block();
-        in_class = "";
+        m_in_class = "";
         return new ClassStatement(name,body, getLine());
     }
 
@@ -152,7 +153,7 @@ private:
         consume(RIGHT_PAREN, "Expected ) after parameters.");
         consume(LEFT_BRACE, "Expected { after parameters.");
         statementList body = block();
-        return new FunctionStatement(name, parameters,body, type, getLine(),in_class);
+        return new FunctionStatement(name, parameters, body, type, getLine(), m_in_class);
     };
 
     //next match statements
@@ -180,17 +181,12 @@ private:
         return new IfStatement(condition,then_statement,else_statement, getLine());
     }
 
-
-    int m_loop = 0; //keep track of loop depth for break statement errors.
-
     //while(true){}
     Statement* whileStatement(){
         consume(LEFT_PAREN, "Expected ( after if");
         Expression* condition = expression();
         consume(RIGHT_PAREN, "Expected ) after conditional");
-        m_loop++;
         Statement* body = statement();
-        m_loop--;
         return new WhileStatement(condition,body, getLine());
     }
 
@@ -226,9 +222,6 @@ private:
     }
     //TODO make proper statements for break and continue.
     Statement* loopStatement(){
-        if(m_loop == 0){
-            m_error_handler->error(m_tokens[m_current-1].line, "Break called while not in loop.");
-        }
         Token keyword = m_tokens[m_current-1];
         consume(SEMICOLON, "Expected ; after expression.");
         return new ReturnStatement(keyword, nullptr, getLine());

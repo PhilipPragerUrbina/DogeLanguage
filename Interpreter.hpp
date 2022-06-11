@@ -216,7 +216,7 @@ public:
     }
 
     object visitSetExpression(Set *expression) {
-        object left = eval(expression->m_obj);
+        object left = eval(expression->m_object);
         if(ClassObject* obj = std::get_if<ClassObject>(&left)){
             object right = eval(expression->m_value);
              obj->m_environment->assign(expression->m_name.original, right);

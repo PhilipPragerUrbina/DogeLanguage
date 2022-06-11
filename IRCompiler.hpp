@@ -25,7 +25,6 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Utils.h"
-
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
@@ -33,807 +32,658 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-class IRCompiler : public Visitor{
+
+//compile AST to llvm intermediate representation
+class IRCompiler : public Visitor {
 public:
-
-
+    //set up llvm
     llvm::LLVMContext m_context;
-    llvm::IRBuilder<> m_builder {m_context};
-    llvm::Module m_module {"Doge Language", m_context};
-    std::vector<llvm::Function*> m_assembly;
+    llvm::IRBuilder<> m_builder{m_context};
+    llvm::Module m_module{"Doge Language", m_context};
 
     //run the interpreter
-    void compile(statementList statements,ErrorHandler* error_handler) {
+    void compile(statementList statements, ErrorHandler *error_handler) {
         //setup error handler
         m_error_handler = error_handler;
         m_error_handler->m_name = "IR Compiler";
         m_visitor_name = "IR compiler";
 
+        //create top level env
         m_environment = new Environment();
         m_top = m_environment;
 
-
-        for(Statement* statement:statements){
+        //run each statement
+        for (Statement *statement: statements) {
             object out = statement->accept(this);
-            if(llvm::Function** function = std::get_if<llvm::Function*>(&out)){
-                m_assembly .push_back(*function);
-            }
-
         }
-
     }
-    void print(){
+
+    //run optimizations on llvm ir
+    void optimize() {
+        //create pass
+        llvm::legacy::PassManager optimizer;
+        //add passes and run
+        optimizer.add(llvm::createPromoteMemoryToRegisterPass());
+        optimizer.add(llvm::createInstructionCombiningPass());
+        optimizer.add(llvm::createReassociatePass());
+        optimizer.add(llvm::createGVNPass());
+        optimizer.add(llvm::createCFGSimplificationPass());
+        optimizer.run(m_module);
+    }
+
+    void print() {
         m_module.print(llvm::outs(), nullptr);
     }
 
-    void optimize(){
-        // Create a new pass manager attached to it.
-        llvm::legacy::FunctionPassManager optimizer(&m_module);
-        // Promote allocas to registers.
-        optimizer.add(llvm::createPromoteMemoryToRegisterPass());
-// Do simple "peephole" optimizations and bit-twiddling optzns.
-        optimizer.add(llvm::createInstructionCombiningPass());
-// Reassociate expressions.
-        optimizer.add(llvm::createReassociatePass());
-        // Eliminate common Sub Expressions.
-        optimizer.add(llvm::createGVNPass());
-
-        optimizer.doInitialization();
-        for(llvm::Function* function : m_assembly){
-            optimizer.run(*function);
-        }
-    }
-    void output() {
-
+    //Create object file
+    void build() {
+        //initialize
         llvm::InitializeAllTargetInfos();
         llvm::InitializeAllTargets();
         llvm::InitializeAllTargetMCs();
         llvm::InitializeAllAsmParsers();
         llvm::InitializeAllAsmPrinters();
-
-
-        auto TargetTriple = llvm::sys::getDefaultTargetTriple();
-
-        std::string Error;
-        auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
-        if (!Target) {
-            llvm::errs() << Error;
+        //get platform target
+        auto desired_target = llvm::sys::getDefaultTargetTriple();
+        std::string error;
+        auto target = llvm::TargetRegistry::lookupTarget(desired_target, error);
+        if (!target) {
+            llvm::errs() << error;
             return;
         }
 
+        //create device settings
+        auto cpu = "generic";
+        auto features = "";
 
-        auto CPU = "generic";
-        auto Features = "";
+        //create target
+        llvm::TargetOptions target_options;
+        auto target_machine = target->createTargetMachine(desired_target, cpu, features, target_options,
+                                                          llvm::Optional<llvm::Reloc::Model>());
+        //setup module
+        m_module.setDataLayout(target_machine->createDataLayout());
+        m_module.setTargetTriple(desired_target);
 
-        llvm::TargetOptions opt;
-        auto RM = llvm::Optional<llvm::Reloc::Model>();
-        auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
-        m_module.setDataLayout(TargetMachine->createDataLayout());
-        m_module.setTargetTriple(TargetTriple);
-
-        auto Filename = "output.o";
-        std::error_code EC;
-        llvm::raw_fd_ostream dest(Filename, EC, llvm::sys::fs::OF_None);
-
-        if (EC) {
-            llvm::errs() << "Could not open file: " << EC.message();
+        //create output file
+        std::string filename = "build.o";
+        auto file_type = llvm::CodeGenFileType::CGFT_ObjectFile;
+        std::error_code stream_error;
+        llvm::raw_fd_ostream dest(filename, stream_error, llvm::sys::fs::OF_None);
+        if (stream_error) {
+            llvm::errs() << "Could not write to file: " << stream_error.message();
             return;
         }
 
-
-        llvm::legacy::PassManager pass;
-        auto FileType =  llvm::CodeGenFileType::CGFT_ObjectFile;
-
-        if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
-            llvm::errs() << "TargetMachine can't emit a file of this type";
+        //create output_pass
+        llvm::legacy::PassManager output_pass;
+        if (target_machine->addPassesToEmitFile(output_pass, dest, nullptr, file_type)) {
+            llvm::errs() << "Target cannot create file.";
             return;
         }
-
-        pass.run(m_module);
+        output_pass.run(m_module);
+        //close file
         dest.flush();
         dest.close();
-
-        std::cout << "\n Assembling... \n";
-        system("clang++ output.cpp output.o -o output.exe");
-
-        std::cout << "\n Running... \n";
-        system("output.exe");
     }
 
-object visitClassStatement(ClassStatement *statement){
-
-       // Class new_class(statement->m_name.original, new Environment(m_environment));
-    llvm::StructType* new_class = llvm::StructType::create(m_context,statement->m_name.original);
-
-    std::vector<llvm::Type*> types;
-    int id = 0;
-    for(Statement* member : statement->m_members){
-        VariableStatement* member_var = dynamic_cast<VariableStatement*>(member);
-        if(member_var != 0)
-        {
-            types.push_back(getType(member_var->m_type));
-            m_environment->define(statement->m_name.original + "_class_" + member_var->m_name.original,id);
-
-            object class_type =  m_environment->getValue(member_var->m_type.original + "_class");
-            if(!std::get_if<null_object>(&class_type)){
-                m_environment->define(statement->m_name.original + "_class_" + member_var->m_name.original + "_type",  member_var->m_type.original + "_class");
-            }
-
-
-
-            id++;
-        }
+    void assemble() {
+        //assemble file to executable using clang
+        system("clang++ output.cpp output.o -o build.exe");
     }
-    new_class->setBody(types);
-    m_environment->define(statement->m_name.original+ "_class",(llvm::Type*)new_class);
-
-    for(Statement* member : statement->m_members){
-        VariableStatement* member_var = dynamic_cast<VariableStatement*>(member);
-        if(member_var != 0)
-        {
-        }else{
-            //is a function
-            member->accept(this);
-        }
-    }
-
-        return null_object();
-    }
-    object visitWhileStatement(WhileStatement* statement){
-
-
-        llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
-        llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(m_context, "loop", parent);
-        m_builder.CreateBr(loop_block);
-        m_builder.SetInsertPoint(loop_block);
-        object out = statement->m_body->accept(this);
-
-        llvm::Value* condition = std::get<llvm::Value*>(eval(statement->m_condition));
-
-        llvm::BasicBlock *after_block =
-                llvm::BasicBlock::Create(m_context, "after_loop", parent);
-
-        m_builder.CreateCondBr(condition, loop_block, after_block);
-        m_builder.SetInsertPoint(after_block);
-        return null_object();
-    }
-
 
     //statements
-    object visitIfStatement(IfStatement* statement){
-        llvm::Value* condition = std::get<llvm::Value*>(eval(statement->m_condition));
 
+    object visitClassStatement(ClassStatement *statement) {
+        //create new type
+        llvm::StructType *new_class = llvm::StructType::create(m_context, statement->m_name.original);
+        //member variable types
+        std::vector<llvm::Type *> types;
+        int id = 0;
+        for (Statement *member: statement->m_members) {
+            //if member is variable
+            VariableStatement *member_var = dynamic_cast<VariableStatement *>(member);
+            if (member_var != 0) {
+                //add type
+                types.push_back(getType(member_var->m_type));
+                //define variable
+                m_environment->define(statement->m_name.original + "_class_" + member_var->m_name.original, id);
+                //if of class type define type
+                object class_type = m_environment->getValue(member_var->m_type.original + "_class");
+                if (!std::get_if<null_object>(&class_type)) {
+                    m_environment->define(statement->m_name.original + "_class_" + member_var->m_name.original + "_type",member_var->m_type.original + "_class");
+                }
+                id++; //increment
+            }
+        }
+        //set body and define class
+        new_class->setBody(types);
+        m_environment->define(statement->m_name.original + "_class", (llvm::Type *) new_class);
+        //add member functions
+        for (Statement *member: statement->m_members) {
+            if (dynamic_cast<VariableStatement *>(member) == 0) {
+                //is a function
+                member->accept(this);
+            }
+        }
+        return null_object();
+    }
+
+    object visitWhileStatement(WhileStatement *statement) {
+        //get parent
         llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
+        //create block
+        llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(m_context, "loop", parent);
+        //create insert
+        m_builder.CreateBr(loop_block);
+        m_builder.SetInsertPoint(loop_block);
+        //make body
+        object out = statement->m_body->accept(this);
+        //get condition
+        llvm::Value *condition = std::get<llvm::Value *>(eval(statement->m_condition));
+        //merge
+        llvm::BasicBlock *merge_block =llvm::BasicBlock::Create(m_context, "after_loop", parent);
+        m_builder.CreateCondBr(condition, loop_block, merge_block);
+        m_builder.SetInsertPoint(merge_block);
 
+        return null_object();
+    }
 
+    object visitIfStatement(IfStatement *statement) {
+        //get condition
+        llvm::Value *condition = std::get<llvm::Value *>(eval(statement->m_condition));
+        //get parent
+        llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
+        //create blocks
         llvm::BasicBlock *then_block = llvm::BasicBlock::Create(m_context, "if_then", parent);
         llvm::BasicBlock *else_block = llvm::BasicBlock::Create(m_context, "if_else");
         llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(m_context, "if_after");
-
+        //create insert point
         m_builder.CreateCondBr(condition, then_block, else_block);
-
         m_builder.SetInsertPoint(then_block);
-
-
-
-
-
-        object then_out  = statement->m_then_branch->accept(this);
-
-
+        //make body
+        statement->m_then_branch->accept(this);
+        //create else insert point
         m_builder.CreateBr(merge_block);
         then_block = m_builder.GetInsertBlock();
-
         parent->getBasicBlockList().push_back(else_block);
         m_builder.SetInsertPoint(else_block);
-
-
-
-        if(statement->m_else_branch != nullptr){
-            object else_out = statement->m_else_branch->accept(this);
+        //make else body
+        if (statement->m_else_branch != nullptr) {
+            statement->m_else_branch->accept(this);
         }
-
-
+        //create merge
         m_builder.CreateBr(merge_block);
         else_block = m_builder.GetInsertBlock();
-
-        // Emit merge block.
         parent->getBasicBlockList().push_back(merge_block);
         m_builder.SetInsertPoint(merge_block);
-
 
         return null_object();
     }
 
     object visitFunctionStatement(FunctionStatement *statement) {
-        std::string name =  statement->m_name.original;
+        //get basic info
+        std::string name = statement->m_name.original;
         int size = statement->m_parameters.size();
-
-        if(statement->m_class_name != ""){
-            name = statement->m_class_name + "_class_" +  statement->m_name.original;
+        bool is_class_member = false;
+        //if class member
+        if (statement->m_class_name != "") {
+            name = statement->m_class_name + "_class_" + statement->m_name.original;
             size++;
+            is_class_member = true;
         }
 
-        llvm::Function *function = m_module.getFunction(name);
-
-        Callable callable =  Callable(size, nullptr,statement);
+        //create callable and define
+        Callable callable = Callable(size, nullptr, statement);
         callable.name = name;
-       callable.m_class = statement->m_class_name;
+        callable.m_class = statement->m_class_name;
+        m_environment->define(name, callable);
 
-        m_environment->define(name,callable);
+        //check if function exists
+        llvm::Function *function = m_module.getFunction(name);
+        if (function) {return function;}
 
-        if (function){
-            return function;
-        }
-
-
-        std::vector<llvm::Type*> types;
-        for(VariableStatement* param : statement->m_parameters){
+        //add types
+        std::vector<llvm::Type *> types;
+        for (VariableStatement *param: statement->m_parameters) {
             types.push_back(getType(param->m_type));
         }
-        if(statement->m_class_name != ""){
-            llvm::Type* class_type = std::get<llvm::Type*>(m_environment->getValue(statement->m_class_name + "_class"));
-            m_environment->define(name + "_type", statement->m_class_name + "_class")
-
-            ;
+        //add class as this parameter pointer
+        if (is_class_member) {
+            llvm::Type *class_type = std::get<llvm::Type *>(m_environment->getValue(statement->m_class_name + "_class"));
+            m_environment->define("this_type", statement->m_class_name + "_class");
             types.push_back(llvm::PointerType::get(class_type, 0));
         }
 
-
-
+        //create function
         llvm::FunctionType *function_type = llvm::FunctionType::get(getType(statement->m_type), types, false);
         function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, name, m_module);
+
         //set names
         int x = 0;
-        for (llvm::Argument& argument : function->args()){
-
-            if(x == function->arg_size()-1 && statement->m_class_name != ""){
+        for (llvm::Argument &argument: function->args()) {
+            if (x == function->arg_size() - 1 && is_class_member) {
                 argument.setName("this");
-
-            }else{
+            } else {
                 argument.setName(statement->m_parameters[x++]->m_name.original);
             }
         }
-
-
-
-
-        if(statement->m_body.empty()){
-            return function;
-        }
-
+        //create body
+        if (statement->m_body.empty()) {return function;} //is extern
         llvm::BasicBlock *block = llvm::BasicBlock::Create(m_context, "entry", function);
         m_builder.SetInsertPoint(block);
         //set up scope
-        Environment* environment;
+        Environment *environment;
         environment = new Environment(m_top);
-
-
-
-        for (auto &Arg : function->args()){
-
-
-
-
-            llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(function, std::string(Arg.getName()),Arg.getType());
-
+        //add arguments
+        for (auto &Arg: function->args()) {
+            llvm::AllocaInst *Alloca = blockAllocation(function, std::string(Arg.getName()), Arg.getType());
             // Store the initial value into the alloca.
             m_builder.CreateStore(&Arg, Alloca);
-
-            environment->define(std::string(Arg.getName()),  Alloca);
-
-            if(Arg.getType()->isStructTy()){
-                object class_type =  m_environment->getValue(Arg.getType()->getStructName().str() + "_class");
-                if(!std::get_if<null_object>(&class_type)){
-                    if(llvm::Type** class_def = std::get_if<llvm::Type*>(&class_type)){
-                        environment->define(Arg.getName().str()+ "_type",  Arg.getType()->getStructName().str() + "_class");
+            environment->define(std::string(Arg.getName()), Alloca);
+            //define class types if of class type
+            if (Arg.getType()->isStructTy()) {
+                object class_type = m_environment->getValue(Arg.getType()->getStructName().str() + "_class");
+                    if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+                        environment->define(Arg.getName().str() + "_type",Arg.getType()->getStructName().str() + "_class");
                     }
-
-                }
             }
-
-
-
         }
-
-
-        object out = executeBlock(statement->m_body, environment);
-
-
-
-
-
-            // Validate the generated code, checking for consistency.
-            llvm::verifyFunction(*function);
-
-        return function;
+        //make body
+        evalBlock(statement->m_body, environment);
+        //validate
+        llvm::verifyFunction(*function);
+        return null_object();
     }
-
-    object visitLogicExpression(Logic *expression){
-        llvm::Value* left =  std::get<llvm::Value*>(eval(expression->m_left));
-        llvm::Value* right = std::get<llvm::Value*>(eval(expression->m_right));
-        if(expression->m_operator_.type == OR){
-            return m_builder.CreateLogicalOr(left,right,"or");
-        }else{
-            return m_builder.CreateLogicalAnd(left,right,"and");
-        }
-
-    }
-
-    object visitReturnStatement(ReturnStatement *statement){
-        if(statement->m_value!= nullptr){
+    object visitReturnStatement(ReturnStatement *statement) {
+        if (statement->m_value != nullptr) {
             object value = eval(statement->m_value);
-            m_builder.CreateRet(std::get<llvm::Value*>(value));
-        }else{
+            m_builder.CreateRet(std::get<llvm::Value *>(value));
+        } else {
             m_builder.CreateRetVoid();
         }
         return null_object();
     }
 
-    object visitBlockStatement(BlockStatement* statement){
-        return executeBlock(statement->m_statements, new Environment(m_environment));
-    }
-    object visitAssignExpression(Assign *expression){
-        llvm::Value* value = std::get<llvm::Value*>(eval(expression->m_value));
-        llvm::Value *Variable =std::get<llvm::AllocaInst*>(m_environment->getValue(expression->m_name.original));
-        m_builder.CreateStore(value, Variable);
+    object visitBlockStatement(BlockStatement *statement) {
+        evalBlock(statement->m_statements, new Environment(m_environment));
         return null_object();
     }
 
-    llvm::Value * last_class = nullptr;
-    std::string last_var = "";
-
-    object visitGetExpression(Get *expression) {
-        object in = eval(expression->m_object);
-        llvm::Value *variable = last_obj;
-        std::string name =std::string( last_obj->getName());
-
-        if(last_var == "this"){
-            llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
-           auto fun_name = parent->getName();
-          last_var = fun_name.str();
-          variable = std::get<llvm::Value*>(in);
-
-        }
-        std::string class_name = std::get<std::string>(m_environment->getValue(last_var+"_type"));
-        last_class = variable;
-        object index_obj = m_environment->getValue(class_name + "_" + expression->m_name.original);
-        int index;
-        if(int* index_temp = std::get_if<int>(&index_obj)){
-            index = *index_temp;
-        }else{
-            //is call
-            return m_environment->getValue(class_name + "_" +  expression->m_name.original);
-        }
-
-
-        llvm::Value* member_index = llvm::ConstantInt::get(m_context, llvm::APInt(32, index /*The index of the member*/, true));
-
-
-        last_var = class_name + "_" + expression->m_name.original;
-
-
-        std::vector<llvm::Value*> indices(2);
-        indices[0] = llvm::ConstantInt::get(m_context, llvm::APInt(32, 0, true));
-        indices[1] = member_index;
-        object class_type =  m_environment->getValue(class_name);
-        std::cout << "Test: " << variable->getType()->isPointerTy();
-        if(!std::get_if<null_object>(&class_type)) {
-            if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
-                llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, variable, indices,
-                                                              expression->m_name.original.c_str());
-                last_obj = (llvm::AllocaInst*)member_ptr;
-                return (llvm::Value*)m_builder.CreateLoad(((llvm::StructType*)*class_def)->getElementType(index),member_ptr, expression->m_name.original + "loaded");
-            }
-
-        }
-        return null_object();
-
-    }
-    llvm::AllocaInst* last_obj;
-    object visitSetExpression(Set *expression) {
-        object in = eval(expression->m_obj);
-        llvm::Value *variable = last_obj;
-        std::string class_name = std::get<std::string>(m_environment->getValue(last_var+"_type"));
-
-
-        if(last_var == "this"){
-            llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
-            auto fun_name = parent->getName();
-            last_var = fun_name.str();
-            variable = std::get<llvm::Value*>(in);
-
-        }
-        int index =std::get<int>( m_environment->getValue(class_name + "_" + expression->m_name.original));
-        llvm::Value* member_index = llvm::ConstantInt::get(m_context, llvm::APInt(32, index /*The index of the member*/, true));
-        llvm::Value* value = std::get<llvm::Value*>(eval(expression->m_value));
-
-
-        std::vector<llvm::Value*> indices(2);
-        indices[0] = llvm::ConstantInt::get(m_context, llvm::APInt(32, 0, true));
-        indices[1] = member_index;
-        object class_type =  m_environment->getValue(class_name);
-
-        if(!std::get_if<null_object>(&class_type)) {
-            if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
-                llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, variable, indices,
-                                                              expression->m_name.original.c_str());
-                last_obj = (llvm::AllocaInst*)member_ptr;
-                m_builder.CreateStore(value, member_ptr);
-            }
-
-        }
-        return null_object();
-
-
-
-
-
-    }
-
-    object visitVariableStatement(VariableStatement* statement){
+    object visitVariableStatement(VariableStatement *statement) {
         llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
-
-        object class_type =  m_environment->getValue(statement->m_type.original + "_class");
-
-        if(!std::get_if<null_object>(&class_type)){
-            if(llvm::Type** class_def = std::get_if<llvm::Type*>(&class_type)){
-
-                llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(parent,statement->m_name.original,*class_def);
-                m_environment->define(statement->m_name.original,  Alloca);
-                m_environment->define(statement->m_name.original + "_type",  statement->m_type.original + "_class");
-
-                return null_object();
-            }
-
+        //check if class
+        object class_type = m_environment->getValue(statement->m_type.original + "_class");
+        if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+                //define type
+                m_environment->define(statement->m_name.original + "_type", statement->m_type.original + "_class");
         }
-
-
-
-
-
-
-        llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(parent, statement->m_name.original, getType(statement->m_type));
-
-        m_environment->define(std::string(statement->m_name.original),  Alloca);
-
-
-
-
-        if(statement->m_initializer != nullptr){
-            llvm::Value* value = std::get<llvm::Value*>(eval(statement->m_initializer));
+        llvm::AllocaInst *Alloca = blockAllocation(parent, statement->m_name.original,getType(statement->m_type));
+        m_environment->define(std::string(statement->m_name.original), Alloca);
+        //initialize
+        if (statement->m_initializer != nullptr) {
+            llvm::Value *value = std::get<llvm::Value *>(eval(statement->m_initializer));
             m_builder.CreateStore(value, Alloca);
         }
-
-
-
         return null_object();
     }
 
-    object visitExpressionStatement(ExpressionStatement* statement){
+    object visitExpressionStatement(ExpressionStatement *statement) {
         eval(statement->m_expression);
         return null_object();
     }
 
-
     //expressions
-    object visitCallExpression(Call* expression) {
-        // Look up the name in the global module table.
-        Callable callee = std::get<Callable> (eval(expression->m_callee));
-        llvm::Function *callee_function = m_module.getFunction( callee.name);
+    object visitGetExpression(Get *expression) {
+        //get object
+        llvm::Value* class_object =  std::get<llvm::Value *>(eval(expression->m_object));
+        llvm::Value *class_object_pointer = m_last_pointer;
+        if(class_object->getType()->isPointerTy()){class_object_pointer = class_object;} //if is pointer use value not pointer to pointer
+        std::string class_name = std::get<std::string>(m_environment->getValue(m_last_variable_name + "_type"));
 
-
-
-        if (!callee_function){
-            m_error_handler->error(expression->m_line,"Unknown function: " + callee.m_declaration->m_name.original);
-            return 0;
+        //get index
+        object index_obj = m_environment->getValue(class_name + "_" + expression->m_name.original);
+        int index;
+        if (int *index_temp = std::get_if<int>(&index_obj)) {
+            index = *index_temp;
+        } else {
+            //return function call
+            m_last_variable_name = class_name + "_" + expression->m_name.original;
+            m_last_class = class_object_pointer;
+            return m_environment->getValue(class_name + "_" + expression->m_name.original);
         }
+        //create index array
+        std::vector<llvm::Value *> indices = getIndices(index);
+        //get class type
+        object class_type = m_environment->getValue(class_name);
+            if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+                //get member pointer
+                llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, class_object_pointer, indices,expression->m_name.original.c_str());
+                //set variables for next get expression
+                m_last_pointer = (llvm::AllocaInst *) member_ptr;
+                m_last_variable_name = class_name + "_" + expression->m_name.original;
+                m_last_class = class_object_pointer;
+                //return value
+                return (llvm::Value *) m_builder.CreateLoad(((llvm::StructType *) *class_def)->getElementType(index),member_ptr, expression->m_name.original + "_loaded");
+            }
+        return null_object();
+    }
+    object visitSetExpression(Set *expression) {
+        //get object
+        llvm::Value* class_object =  std::get<llvm::Value *>(eval(expression->m_object));
+        llvm::Value *class_object_pointer = m_last_pointer;
+        if(class_object->getType()->isPointerTy()){class_object_pointer = class_object;} //if is pointer use value not pointer to pointer
+        std::string class_name = std::get<std::string>(m_environment->getValue(m_last_variable_name + "_type"));
+        //get index
+        object index_obj = m_environment->getValue(class_name + "_" + expression->m_name.original);
+        int index;
+        if (int *index_temp = std::get_if<int>(&index_obj)) {
+            index = *index_temp;
+            //create index array
+            std::vector<llvm::Value *> indices = getIndices(index);
 
+            //get value to assign
+            llvm::Value *value = std::get<llvm::Value *>(eval(expression->m_value));
 
-
-        std::vector<llvm::Value* > arguments;
-        for (Expression* argument : expression->m_arguments) {
-            arguments.push_back(std::get<llvm::Value*>(eval(argument)));
+            //get class type
+            object class_type = m_environment->getValue(class_name);
+            if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+                //get member pointer
+                llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, class_object_pointer, indices,
+                                                              expression->m_name.original.c_str());
+                //set variables for next get expression
+                m_last_pointer = (llvm::AllocaInst *) member_ptr;
+                m_last_variable_name = class_name + "_" + expression->m_name.original;
+                m_last_class = class_object_pointer;
+                //store value
+                m_builder.CreateStore(value, member_ptr);;
+            }
         }
-
-        if(callee.m_class != "") {
-
-            arguments.push_back(last_class);
-        }
-
-
-
-
-        if (callee_function->arg_size() != arguments.size()){
-            m_error_handler->error(expression->m_line,"Not correct argument number, function:  " + callee.m_declaration->m_name.original + " expects: " +
-                                                      std::to_string(callee_function->arg_size()) + " not " + std::to_string(expression->m_arguments.size()));
-            return 0;
-        }
-        return (llvm::Value* )m_builder.CreateCall(callee_function, arguments, "call");
+        return null_object();
     }
 
 
 
-    object visitVariableExpression(Variable* expression){
+    object visitCallExpression(Call *expression) {
+        // Look up the name in the global module table.
+        Callable callee = std::get<Callable>(eval(expression->m_callee));
+        llvm::Function *callee_function = m_module.getFunction(callee.name);
+        if (!callee_function) {m_error_handler->error(expression->m_line, "Unknown function: " + callee.m_declaration->m_name.original);return null_object();}
 
+        std::vector<llvm::Value *> arguments;
+        for (Expression *argument: expression->m_arguments) {
+            arguments.push_back(std::get<llvm::Value *>(eval(argument)));
+        }
+        if (callee.m_class != "") {
+            arguments.push_back(m_last_class);
+        }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        object this_in = m_environment->getValue("this");
-      if(!std::get_if<null_object>(&this_in)){
-
-          llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
-          auto fun_name = parent->getName();
-          last_var = fun_name.str();
-          llvm::AllocaInst* var = std::get<llvm::AllocaInst*>(this_in);
-              last_obj = var;
-              llvm::Value* variable =  (llvm::Value*)m_builder.CreateLoad(var->getAllocatedType(),var, "this");
-
-
-
-
-          std::string class_name = std::get<std::string>(m_environment->getValue(last_var+"_type"));
-          last_class = variable;
-          object index_obj = m_environment->getValue(class_name + "_" + expression->m_name.original);
-          if(!std::get_if<null_object>(&index_obj)) {
-              int index;
-              if(int* index_temp = std::get_if<int>(&index_obj)){
-                  index = *index_temp;
-              }else{
-                  //is call
-                  return m_environment->getValue(class_name + "_" +  expression->m_name.original);
-              }
-
-
-              llvm::Value* member_index = llvm::ConstantInt::get(m_context, llvm::APInt(32, index /*The index of the member*/, true));
-
-
-              last_var = class_name + "_" + expression->m_name.original;
-
-
-              std::vector<llvm::Value*> indices(2);
-              indices[0] = llvm::ConstantInt::get(m_context, llvm::APInt(32, 0, true));
-              indices[1] = member_index;
-              object class_type =  m_environment->getValue(class_name);
-              std::cout << "Test: " << variable->getType()->isPointerTy();
-              if(!std::get_if<null_object>(&class_type)) {
-                  if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
-                      llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, variable, indices,
-                                                                    expression->m_name.original.c_str());
-                      last_obj = (llvm::AllocaInst *) member_ptr;
-                      return (llvm::Value *) m_builder.CreateLoad(((llvm::StructType *) *class_def)->getElementType(index),
-                                                                  member_ptr, expression->m_name.original + "loaded");
-                  }
-              }
-          }
-          }
-
-
-
-        object in =  m_environment->getValue(expression->m_name.original);
-
-        last_var = expression->m_name.original;
-
-        if( llvm::AllocaInst** val = std::get_if< llvm::AllocaInst* >(&in)){
-
-            llvm::AllocaInst* value = *val;
-                last_obj = value;
-            return (llvm::Value*)m_builder.CreateLoad(value->getAllocatedType(),value, expression->m_name.original.c_str());
+        if (callee_function->arg_size() != arguments.size()) {
+            m_error_handler->error(expression->m_line,
+                                   "Not correct argument number, function:  " + callee.m_declaration->m_name.original +
+                                   " expects: " +
+                                   std::to_string(callee_function->arg_size()) + " not " +
+                                   std::to_string(expression->m_arguments.size()));
+            return null_object();
+        }
+        return (llvm::Value *) m_builder.CreateCall(callee_function, arguments, "call");
+    }
+    //add this to expression and see if it works. Otherwise, just normally search for variable.
+    object visitVariableExpression(Variable *expression) {
+        //check if a member variable matches
+        object this_object = m_environment->getValue("this");
+        //does this function have a this
+        if( llvm::AllocaInst** var = std::get_if<llvm::AllocaInst*>(&this_object)){
+            llvm::AllocaInst* this_pointer_pointer = *var;
+            //get this
+            llvm::Value* this_pointer =  (llvm::Value*)m_builder.CreateLoad(this_pointer_pointer->getAllocatedType(), this_pointer_pointer, "this_load");
+            //class name
+            std::string class_name = std::get<std::string>(m_environment->getValue("this_type"));
+            //member variable exists desired_variable class
+            object index_obj = m_environment->getValue(class_name + "_" + expression->m_name.original);
+            if(int* index_temp = std::get_if<int>(&index_obj)) {
+                //get index
+                int index = *index_temp;
+                //create index array
+                std::vector<llvm::Value *> indices = getIndices(index);
+                //get class type
+                object class_type =  m_environment->getValue(class_name);
+                if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+                        llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, this_pointer, indices,expression->m_name.original.c_str());
+                        //set variables
+                        m_last_pointer = (llvm::AllocaInst *) member_ptr;
+                        m_last_variable_name = class_name + "_" + expression->m_name.original;
+                        m_last_class = this_pointer;
+                        //return load
+                        return (llvm::Value *) m_builder.CreateLoad(((llvm::StructType *) *class_def)->getElementType(index),member_ptr, expression->m_name.original + "_loaded");
+                }
+            }
+            //check if member function
+            object function_obj = m_environment->getValue(class_name + "_" +  expression->m_name.original);
+            if(!std::get_if<null_object>(&function_obj)){
+                //is function/callable
+                m_last_variable_name = class_name + "_" + expression->m_name.original;
+                m_last_class = this_pointer;
+                return function_obj;
+            }
+        }
+        //not a member variable, search for local ones
+        object desired_variable =  m_environment->getValue(expression->m_name.original);
+        //check if pointer exists to variable
+        if( llvm::AllocaInst** val = std::get_if< llvm::AllocaInst* >(&desired_variable)){
+            llvm::AllocaInst* pointer = *val;
+            m_last_pointer = pointer;
+            m_last_variable_name = expression->m_name.original;
+            //load variable
+            return (llvm::Value*)m_builder.CreateLoad(pointer->getAllocatedType(), pointer, expression->m_name.original.c_str());
 
         }else{
-            return in;
+            m_last_variable_name = expression->m_name.original;
+            return desired_variable;
         }
-
     }
 
+    object visitAssignExpression(Assign *expression) {
+        llvm::Value *value = std::get<llvm::Value *>(eval(expression->m_value));
+        llvm::Value *variable = std::get<llvm::AllocaInst *>(m_environment->getValue(expression->m_name.original));
+        m_builder.CreateStore(value, variable);
+        return null_object();
+    }
 
+    object visitLogicExpression(Logic *expression) {
+        llvm::Value *left = std::get<llvm::Value *>(eval(expression->m_left));
+        llvm::Value *right = std::get<llvm::Value *>(eval(expression->m_right));
+        if (expression->m_operator_.type == OR) {
+            return m_builder.CreateLogicalOr(left, right, "or");
+        } else {
+            return m_builder.CreateLogicalAnd(left, right, "and");
+        }
+    }
 
-
-
-    object visitBinaryExpression(Binary* expression){
-        llvm::Value* right = std::get<llvm::Value*>(eval(expression->m_right));
-        llvm::Value* left =  std::get<llvm::Value*>(eval(expression->m_left));
-        //TODO add operator overloading
+    object visitBinaryExpression(Binary *expression) {
+        //get values
+        llvm::Value *right = std::get<llvm::Value *>(eval(expression->m_right));
+        llvm::Value *left = std::get<llvm::Value *>(eval(expression->m_left));
         switch (expression->m_operator_.type) {
             case BANG_EQUAL:
                 if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpUNE(left, right, "lessFloat");
+                    return m_builder.CreateFCmpUNE(left, right, "not_equal_floats");
                 } else {
-                    return m_builder.CreateICmpNE(left, right, "lessInt");
+                    return m_builder.CreateICmpNE(left, right, "not_equal_ints");
                 }
             case EQUAL_EQUAL:
                 if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpUEQ(left, right, "lessFloat");
+                    return m_builder.CreateFCmpUEQ(left, right, "equal_floats");
                 } else {
-                    return m_builder.CreateICmpEQ(left, right, "lessInt");
+                    return m_builder.CreateICmpEQ(left, right, "equal_ints");
                 }
             case GREATER:
                 if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpUGT(left, right, "lessFloat");
+                    return m_builder.CreateFCmpUGT(left, right, "greater_floats");
                 } else {
-                    return m_builder.CreateICmpUGT(left, right, "lessInt");
+                    return m_builder.CreateICmpUGT(left, right, "greater_ints");
                 }
             case GREATER_EQUAL:
                 if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpUGE(left, right, "lessFloat");
+                    return m_builder.CreateFCmpUGE(left, right, "greater_equal_floats");
                 } else {
-                    return m_builder.CreateICmpUGE(left, right, "lessInt");
+                    return m_builder.CreateICmpUGE(left, right, "greater_equal_ints");
                 }
             case LESS:
                 if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpULT(left, right, "lessFloat");
+                    return m_builder.CreateFCmpULT(left, right, "less_floats");
                 } else {
-                    return m_builder.CreateICmpULT(left, right, "lessInt");
+                    return m_builder.CreateICmpULT(left, right, "less_ints");
                 }
             case LESS_EQUAL:
                 if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpULE(left, right, "lessFloat");
+                    return m_builder.CreateFCmpULE(left, right, "less_equal_floats");
                 } else {
-                    return m_builder.CreateICmpULE(left, right, "lessInt");
+                    return m_builder.CreateICmpULE(left, right, "less_equal_ints");
                 }
             case MINUS:
                 if (right->getType()->isFloatTy()) {
-                    return m_builder.CreateFSub(left, right, "subFloat");
+                    return m_builder.CreateFSub(left, right, "subtract_float");
                 } else {
-                    return m_builder.CreateSub(left, right, "subInt");
+                    return m_builder.CreateSub(left, right, "subtract_int");
                 }
             case SLASH:
-                //check if zero
                 if (right->getType()->isFloatTy()) {
-                    return m_builder.CreateFDiv(left, right, "divFloat");
+                    return m_builder.CreateFDiv(left, right, "divide_float");
                 } else {
-                    return m_builder.CreateUDiv(left, right, "divInt");
+                    return m_builder.CreateUDiv(left, right, "divide_int");
                 }
             case STAR:
                 if (right->getType()->isFloatTy()) {
-                    return m_builder.CreateFMul(left, right, "mulFloat");
+                    return m_builder.CreateFMul(left, right, "multiply_float");
                 } else {
-                    return m_builder.CreateMul(left, right, "mulInt");
+                    return m_builder.CreateMul(left, right, "multiply_int");
                 }
             case PLUS:
                 if (right->getType()->isFloatTy()) {
-                    return m_builder.CreateFAdd(left, right, "addFloat");
+                    return m_builder.CreateFAdd(left, right, "add_float");
                 } else if (right->getType() == llvm::Type::getInt8PtrTy(m_context) && left->getType() == llvm::Type::getInt8PtrTy(m_context)) {
-                        // string
-                    llvm::Function *callee_function = m_module.getFunction( "concat");
-                    if (!callee_function){
+                    //temporarily using c++ implemented wrapper to combine strings until proper library and array support is added.
+                    llvm::Function *callee_function = m_module.getFunction("concat");
+                    if (!callee_function) {
                         m_error_handler->error(expression->m_line,"Standard library concat is needed to combine strings!");
                     }
-                    std::vector<llvm::Value* > arguments;
-                    arguments.push_back(left);
-                    arguments.push_back(right);
-                    //temporarily using c++ implemented wrapper to combine strings until proper library and array support is added.
-                    return (llvm::Value* )m_builder.CreateCall(callee_function, arguments, "string_combine");
+                    return (llvm::Value *) m_builder.CreateCall(callee_function, {left,right}, "add_string");
                 } else {
-                    return m_builder.CreateAdd(left, right, "addInt");
+                    return m_builder.CreateAdd(left, right, "add_int");
                 }
-
-
         }
-        m_error_handler->error(expression->m_line,"Not a binary type for: " + expression->m_operator_.original);
+        m_error_handler->error(expression->m_line, "Not a binary type for: " + expression->m_operator_.original);
         return 0;
     };
 
-    object visitGroupingExpression(Grouping* expression){
+    object visitUnaryExpression(Unary *expression) {
+        //get right value
+        llvm::Value *right = std::get<llvm::Value*>(eval(expression->m_right));
+        switch (expression->m_operator_.type) {
+            case BANG:
+                return m_builder.CreateNot(right, "not"); // conditional ! operator
+            case MINUS:
+                //make number negative
+                if (right->getType()->isFloatTy()) {
+                    return m_builder.CreateFNeg(right, "negative_float");
+                } else {
+                    return m_builder.CreateNeg(right, "negative_int");
+                }
+        }
+        m_error_handler->error(expression->m_line, "Not a unary type for: " + expression->m_operator_.original);
+        return null_object();
+    };
+
+    object visitGroupingExpression(Grouping *expression) {
         return eval(expression->m_expression);
     };
-    object visitLiteralExpression(Literal* expression){
-        if(int* number =std::get_if<int>(& expression->m_value)){return llvm::ConstantInt::get(m_context, llvm::APInt(32,*number));}
-        if(float* number =std::get_if<float>(& expression->m_value)){return llvm::ConstantFP::get(m_context, llvm::APFloat(*number));}
-        if(bool* boolean =std::get_if<bool>(& expression->m_value)){return llvm::ConstantInt::get(m_context, llvm::APInt(32,(int)*boolean));}
 
-     //   if(std::string* s =std::get_if<std::string>(& expression->m_value)){return llvm::ConstantFP::get(m_context, llvm::APFloat((float)(s->at(0))));}
-
-        if(std::string* s =std::get_if<std::string>(& expression->m_value)){
-            return (llvm::Value*)m_builder.CreateGlobalStringPtr(*s);
-
+    object visitLiteralExpression(Literal *expression) {
+        if (int *number = std::get_if<int>(&expression->m_value)) { //create integer. All ints are 32 bit.
+            return llvm::ConstantInt::get(m_context, llvm::APInt(32, *number));
         }
-        return 0;
+        else if (float *number = std::get_if<float>(&expression->m_value)) { //create float
+            return llvm::ConstantFP::get(m_context, llvm::APFloat(*number));
+        }
+        else if (bool *boolean = std::get_if<bool>(&expression->m_value)) {        //create bool. LLVM just treats them as ints.
+            return llvm::ConstantInt::get(m_context, llvm::APInt(8,  *boolean));
+        }
+        else if (std::string *s = std::get_if<std::string>(&expression->m_value)) { //create constant string
+            return (llvm::Value *) m_builder.CreateGlobalStringPtr(*s);
+        }
+        //literal cannot be created
+        m_error_handler->error(expression->m_line,"Unsupported literal.");
+        return null_object();
     };
 
 private:
-    Environment* m_environment;
-    Environment* m_top;
-    ErrorHandler* m_error_handler;
-    //last used class object for function scoping
-    ClassObject m_last_class{ Class("")};
-    object eval(Expression* expression){
+    //current environment
+    Environment *m_environment;
+    //top level environment
+    Environment *m_top;
+    //error handler
+    ErrorHandler *m_error_handler;
+    //last processed data
+    llvm::Value *m_last_class = nullptr;
+    std::string m_last_variable_name = "";
+    llvm::AllocaInst *m_last_pointer;
+
+    //evaluate an expression
+    object eval(Expression *expression) {
         return expression->accept(this);
     }
-    object executeBlock(statementList statements, Environment* environment, bool cleanup = true){
-        Environment* pre = m_environment;
+
+    //evaluate a block and manage the environments
+    void evalBlock(statementList statements, Environment *environment) {
+        //swap envs
+        Environment *prev_env = m_environment;
         m_environment = environment;
-        object out = null_object();
-        for(Statement* inner_statement: statements){
-            out = inner_statement->accept(this);
-            if(!std::get_if<null_object>(&out)){
-                break;
-            }
+        //run statements
+        for (Statement *inner_statement: statements) {
+            inner_statement->accept(this);
         }
-        if( cleanup){
-            delete environment;
-        }
-
-        m_environment = pre;
-        return out;
+        //cleanup
+        delete environment;
+        //back to original env
+        m_environment = prev_env;
     }
 
-     llvm::AllocaInst *CreateEntryBlockAlloca(llvm::Function *TheFunction,
-                                              const std::string &VarName,llvm::Type* type) {
-        llvm::IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
-                         TheFunction->getEntryBlock().begin());
-        return TmpB.CreateAlloca(type, 0,
-                                 VarName.c_str());
+    //create alloca at entry block. This is for easier analysis and optimization of code by llvm.
+    llvm::AllocaInst *blockAllocation(llvm::Function *function, const std::string &variable_name, llvm::Type *type) {
+        llvm::IRBuilder<> block(&function->getEntryBlock(),function->getEntryBlock().begin());
+        return block.CreateAlloca(type, 0,variable_name.c_str());
+    }
+    //get indices array for accessing class members
+    std::vector<llvm::Value *> getIndices(const int index) {
+        llvm::Value *member_index = llvm::ConstantInt::get(m_context, llvm::APInt(32, index, true));
+        std::vector<llvm::Value *> indices(2);
+        indices[0] = llvm::ConstantInt::get(m_context, llvm::APInt(32, 0, true));
+        indices[1] = member_index;
+        return indices;
     }
 
-    //conversions
-    int getInt(object in, int line = 0){
-        if(int* number =std::get_if<int>(&in)){return *number;}
-        if(float* number =std::get_if<float>(&in)){return *number;}
-        if(std::string* s =std::get_if<std::string>(&in)){return std::stoi(*s);}
-        m_error_handler->error(line, "Could not convert to int.");
-        return 0;
-    }
-    float getFloat(object in, int line = 0){
-        if(float* number =std::get_if<float>(&in)){return *number;}
-        if(int* number =std::get_if<int>(&in)){return *number;}
-        if(std::string* s =std::get_if<std::string>(&in)){return std::stof(*s);}
-        m_error_handler->error(line,"Could not convert to float.");
-        return 0;
-    }
-    std::string getString(object in, int line = 0){
-        if(std::string* s =std::get_if<std::string>(&in)){return *s;}
-        if(float* number =std::get_if<float>(&in)){return std::to_string(*number);}
-        if(int* number =std::get_if<int>(&in)){return std::to_string(*number);}
-        if(bool* b =std::get_if<bool>(&in)){return std::to_string(*b);}
-        if(ClassObject* b =std::get_if<ClassObject>(&in)){return b->m_class.m_name + " object";}
-        if(std::get_if<null_object>(&in)){ return "null";};
-        m_error_handler->error(line,"Cannot convert to string.");
-        return "";
-    }
 
-    llvm::Type* getType(Token type){
+    //get type from token
+    llvm::Type *getType(const Token type) {
         std::string type_name = type.original;
-       if(type_name == "bool"){
-           return llvm::Type::getInt8Ty(m_context);
-       }
-        else if(type_name == "int"){
+        //primitives
+        if (type_name == "bool") {
+            return llvm::Type::getInt8Ty(m_context);
+        } else if (type_name == "int") {
             return llvm::Type::getInt32Ty(m_context);
+        } else if (type_name == "float") {
+            return llvm::Type::getFloatTy(m_context);
+        } else if (type_name == "string") {
+            return llvm::Type::getInt8PtrTy(m_context);
         }
-       else if(type_name == "float"){
-           return llvm::Type::getFloatTy(m_context);
-       }
-       else if(type_name == "string"){
-           return llvm::Type::getInt8PtrTy(m_context);
-       }
-        object class_type =  m_environment->getValue(type.original + "_class");
-        if(!std::get_if<null_object>(&class_type)){
-            if(llvm::Type** class_def = std::get_if<llvm::Type*>(&class_type)){
-
-
-                return *class_def;
-            }
-
+        //might be class
+        object class_type = m_environment->getValue(type.original + "_class");
+        if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+            return *class_def;
         }
+        //type not supported, just return float.
         m_error_handler->error("Unsupported type: " + type_name);
         return llvm::Type::getFloatTy(m_context);
-
-
     }
-
-
-
-    };
+};
 #endif //PROGRAM_IRCOMPILER_HPP
