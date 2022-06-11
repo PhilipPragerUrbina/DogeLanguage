@@ -1,4 +1,5 @@
-#define DOGE_LANGUAGE_VERSION "v0.2"
+//define language version
+#define DOGE_LANGUAGE_VERSION "v0.5"
 
 #include <iostream>
 
@@ -11,7 +12,8 @@
 #include "IRCompiler.hpp"
 
 #include <windows.h>
-
+#include <filesystem>
+#include "Analyzer.hpp"
 
 int main(int argc, char* args[]) {
 
@@ -25,6 +27,8 @@ int main(int argc, char* args[]) {
 
     //default file
     std::string filename = "main.doge";
+
+
     //check if other file specified
     if (argc > 1){filename = args[1];}
 
@@ -34,6 +38,21 @@ int main(int argc, char* args[]) {
     if(!main_file.read()){
         return 1;
     }
+
+    //TODO work with multiple custom source files
+    //TODO work with custom build path and file type
+    //check if source was modified since last build
+    std::filesystem::path source_path(filename);
+    auto source_modify_time = last_write_time(source_path);
+    std::filesystem::path build_path("output.exe");
+    auto build_modify_time = last_write_time(build_path);
+    if(source_modify_time < build_modify_time){
+        //source has not changed, just run
+        std::cout << "\n No changes detected. Running build... \n";
+        system("build.exe");
+        return 0;
+    }
+
 
     //create error handler
     ErrorHandler error_handler;
@@ -46,10 +65,65 @@ int main(int argc, char* args[]) {
     if(error_handler.hasErrors()){
         return 1;
     }
+
     //get tokens
     std::vector<Token> tokens = scanner.getTokens();
 
-    //choose random colors for syntax highlighting
+    //parse code
+    Parser parser(tokens,&error_handler);
+   statementList statements  = parser.parse();
+
+    //check for errors
+    if(error_handler.hasErrors()){
+        return 1;
+    }
+    //check
+    Analyzer analyzer;
+    if(analyzer.check(statements,&error_handler)){
+        return 1;
+    }
+
+
+    //compile
+    std::cout << "\n Compiling... \n" ;
+    IRCompiler compiler;
+    compiler.compile(statements,&error_handler);
+
+    //check for errors
+    if(error_handler.hasErrors()){
+        return 1;
+    }
+
+    //build ir
+    std::cout << "\n Compile build: \n \n" ;
+    compiler.print();
+
+    //optimize ir
+    std::cout << "\n Optimizing... \n" ;
+    compiler.optimize();
+    std::cout << "\n optimize build: \n \n" ;
+    compiler.print();
+
+    //build to .o
+    compiler.build();
+
+    //assemble
+    std::cout << "\n Assembling... \n";
+    compiler.assemble();
+
+    //run file
+    std::cout << "\n Running... \n";
+    system("build.exe");
+
+    return 0;
+}
+
+
+
+
+/*
+
+        //choose random colors for syntax highlighting
     std::map<int,TextColor> colors;
     //same colors very time
     srand(0);
@@ -59,7 +133,7 @@ int main(int argc, char* args[]) {
          colors[i] = random;
     }
 
-    //display tokens
+      //display tokens
     std::cout << "\n \n Detected Tokens: \n \n";
     for(Token token:tokens){
         Color::start(colors[token.type]);
@@ -78,26 +152,19 @@ int main(int argc, char* args[]) {
         std::cout << token.original;
         Color::end();
     }
+     */
 
-    //parse code
-    Parser parser(tokens,&error_handler);
-   statementList statements  = parser.parse();
-
-    //check for errors
-    if(error_handler.hasErrors()){
-        return 1;
-    }
-
-    //generate graph vis  file of code
-    DotFileGenerator graph;
-    graph.print(statements);
-
+/*
+//generate graph vis  file of code
+DotFileGenerator graph;
+graph.print(statements);
+*/
 /*
     //interpret
     Interpreter runtime;
 
     //output
-    std::cout << "\n output: \n \n" ;
+    std::cout << "\n build: \n \n" ;
 
     std::string out = runtime.run(statements,&error_handler);
 
@@ -110,32 +177,3 @@ int main(int argc, char* args[]) {
     std::cout<<"\n \n Exited with: " << out << " \n";
     Color::end();
 */
-
-    //compile
-    std::cout << "\n Compiling... \n" ;
-    IRCompiler compiler;
-    compiler.compile(statements,&error_handler);
-
-    //check for errors
-    if(error_handler.hasErrors()){
-        return 1;
-    }
-
-    //output
-    std::cout << "\n Compile output: \n \n" ;
-    compiler.print();
-    std::cout << "\n Optimizing... \n" ;
-    compiler.optimize();
-
-    std::cout << "\n optimize output: \n \n" ;
-    compiler.print();
-
-    compiler.output();
-
-
-
-
-
-
-    return 0;
-}
