@@ -1,3 +1,4 @@
+
 //externals
 extern int printFloat(float a);
 extern float inF();
@@ -41,7 +42,7 @@ printC("Enter sussy: ");
 int num = inI();
 newLine();
 for(int i = 0; i <= num; i++){
-printC("Sus level: " + toString_int(i));
+printC("Sus level: " + toString_int(-i));
 newLine();
 }
 
@@ -50,6 +51,7 @@ printC("bbbbbbbbbbbbbb");
 }else{
 printC("cccccccc");
 }
+
 
 string test = toString_int(p.getX());
 printC("test: " + test);
