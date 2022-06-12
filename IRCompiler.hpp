@@ -509,7 +509,7 @@ public:
                                    std::to_string(expression->m_arguments.size()));
             return null_object();
         }
-        return (llvm::Value *) m_builder.CreateCall(callee_function, arguments, "call");
+        return (llvm::Value *) m_builder.CreateCall(callee_function, arguments);
     }
     //add this to expression and see if it works. Otherwise, just normally search for variable.
     object visitVariableExpression(Variable *expression) {
