@@ -9,12 +9,12 @@
 
 //temporary standard library
 //print a char from a float
-extern "C" DLLEXPORT int putF(float X) {
+extern "C" DLLEXPORT int putF_float(float X) {
     fputc((char)X, stdout);
     return 0;
 }
 //print a constant string
-extern "C" DLLEXPORT int printC(char* chars) {
+extern "C" DLLEXPORT int printC_string(char* chars) {
     std::cout << chars;
     return 0;
 }
@@ -23,10 +23,11 @@ extern "C" DLLEXPORT int newLine() {
     return 0;
 }
 //print a float
-extern "C" DLLEXPORT int printFloat(float X) {
+extern "C" DLLEXPORT int printFloat_float(float X) {
     std::cout << " \n Out: " << X << "\n";
     return 0;
 }
+
 //get float input
 extern "C" DLLEXPORT float inF() {
     float a = 0;
@@ -40,7 +41,7 @@ extern "C" DLLEXPORT int inI() {
     return a;
 }
 //convert to string
-extern "C" DLLEXPORT const char* toString(float a) {
+extern "C" DLLEXPORT const char* toString_float(float a) {
     std::string* out =   new std::string(std::to_string(a));
     return out->data();
 }
@@ -49,12 +50,14 @@ extern "C" DLLEXPORT const char* toString_int(int a) {
     return out->data();
 }
 //add two strings
-extern "C" DLLEXPORT const char* concat(char* a,char* b) {
+extern "C" DLLEXPORT const char* concat_string_string(char* a,char* b) {
     std::string* out = new std::string((std::string(a)+std::string(b)));
     return out->data();
 }
 
-
+extern "C" DLLEXPORT float pow_float_float(float a, float b) {
+    return pow(a,b);
+}
 
 //main function
 extern "C" {

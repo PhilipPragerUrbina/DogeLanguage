@@ -2,81 +2,28 @@
 //externals
 extern int printFloat(float a);
 extern float inF();
-extern int inI();
 extern int printC(string a);
 extern int newLine();
-extern string toString(float a);
-extern string toString_int(int a);
-extern string concat(string a,string b);
+extern float pow(float base, float exp);
 
-class scalar{
-float value;
-int magnitude;
+
+
+float pi(float n) {
+    float sum = 0.0;
+    float sign = 1.0;
+    for (float i = 0.0; i < n; i = i + 1.0) {
+        sum =  sum + sign/(2.0*i+1.0);
+        sign = sign * -1.0;
+    }
+    return 4.0*sum;
 }
-
-class point{
-
-scalar x;
-int y;
-int getX(){
-x.magnitude = this.x.magnitude  + 5;
-
-return x.magnitude;
-}
-
-void point(string message){
-printC(message);
-y = 3;
-
-
-}
-
-}
-
-
 
 //main function
 int DogeMain(){
-printC("aaaaaaaaaaaaaaa");
-point p = point("MEssage ina  BOTTTLEE!!!!!!!!!");
-scalar s;
-
-s.magnitude = 27;
-s.value = 2.22;
-
-
-p.x = s;
-if(p.y == 3){
-printC("Enter sussy: ");
-int num = inI();
+printC("Enter precision: ");
+float in = inF();
 newLine();
-for(int i = 0; i <= num; i++){
-printC("Sus level: " + toString_int(-i));
-newLine();
-}
-
-}else if(p.y == 4){
-printC("bbbbbbbbbbbbbb");
-}else{
-
-printC("cccccccc");
-}
-
-
-string test = toString_int(p.getX());
-printC("test: " + test);
-newLine();
-
-string x = toString(p.x.value);
-string y = toString_int(p.y);
-string intro1 = "Point x: ";
-string intro2 = " y: ";
-
-string out = intro1 + x + intro2 + y;
-
-
-printC(out);
-
+printFloat(pi(in));
 return 0;
 
 }
