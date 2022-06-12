@@ -1,33 +1,56 @@
+//link cpp file
 #link "SL.cpp";
 //externals
-extern int printFloat(float a);
-extern float inF();
-extern int printC(chars a);
-extern int newLine();
-extern float pow(float base, float exp);
-extern chars toString(float a);
-extern chars toString(int a);
+//input
+extern chars charsIn();
+//output
+extern void printChars(chars a);
+extern void newLine();
+//conversions
+extern chars toChars(float a);
+extern chars toChars(int a);
+extern float toFloat(int a);
+extern float toFloat(chars a);
+extern int toInt(float a);
+//utilities
 extern chars concat(chars a,chars b);
+extern float power(float base, float exp);
 
-
+//string class
 class string{
-chars m_chars;
-void string(chars c){
-    m_chars = c;
+    //char data
+    chars m_chars;
+    //constructors
+    void string(chars c){m_chars = c;}
+    void string(int i){m_chars = toChars(i);}
+    void string(float f){m_chars = toChars(f);}
+    //overloading
+    string plus(chars c){
+        return string(concat(m_chars,c));
+    }
+    string plus(string b){
+        return string(concat(m_chars,b.m_chars));
+    }
+    void print(){
+        printChars(m_chars);
+    }
+}
+//consistent printing
+void print(int i){
+    string s = string(i);
+    s.print();
+}
+void print(float f){
+    string s = string(f);
+    s.print();
+}
+void print(chars s){
+    printChars(s);
+}
+void print(string s){
+    s.print();
 }
 
-string plus(chars c){
-    chars new =  concat(m_chars,c);
-
-      return string(new);
-}
-string plus(string b){
-    chars new = concat(m_chars,b.m_chars);
-
-    return string(new);
-}
-void print(){
-    printC(m_chars);
-}
-
+float floatIn(){
+    return toFloat(charsIn());
 }

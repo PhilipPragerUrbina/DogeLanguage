@@ -7,55 +7,52 @@
 #define DLLEXPORT
 #endif
 
+// standard library externals
 
-// standard library
-//print a char from a float
-extern "C" DLLEXPORT int putF_float(float X) {
-    fputc((char)X, stdout);
-    return 0;
-}
-//print a constant string
-extern "C" DLLEXPORT int printC_chars(char* chars) {
-    std::cout << chars;
-    return 0;
-}
-extern "C" DLLEXPORT int newLine() {
-    std::cout << "\n";
-    return 0;
-}
-//print a float
-extern "C" DLLEXPORT int printFloat_float(float X) {
-    std::cout << " \n Out: " << X << "\n";
-    return 0;
+//get char string input
+extern "C" DLLEXPORT const char* charsIn() {
+    std::string in;
+    std::cin >> in;
+    std::string* out =   new std::string(in);
+    return out->data();
 }
 
-//get float input
-extern "C" DLLEXPORT float inF() {
-    float a = 0;
-    std::cin >> a;
-    return a;
+//output
+extern "C" DLLEXPORT void printChars_chars(char* chars) {
+    std::cout <<chars;
+}
+extern "C" DLLEXPORT void newLine() {
+    std::cout <<"\n";
 }
 
-extern "C" DLLEXPORT int inI() {
-    int a = 0;
-    std::cin >> a;
-    return a;
-}
-//convert to string
-extern "C" DLLEXPORT const char* toString_float(float a) {
+//conversions
+extern "C" DLLEXPORT const char* toChars_float(float a) {
     std::string* out =   new std::string(std::to_string(a));
     return out->data();
 }
-extern "C" DLLEXPORT const char* toString_int(int a) {
+extern "C" DLLEXPORT const char* toChars_int(int a) {
     std::string* out =   new std::string(std::to_string(a));
     return out->data();
 }
-//add two strings
+extern "C" DLLEXPORT float toFloat_int(int a) {
+    return (float)a;
+}
+extern "C" DLLEXPORT float toFloat_chars(const char* a) {
+    std::string in = std::string (a);
+    return std::stof(in);
+}
+extern "C" DLLEXPORT int toInt_float(float a) {
+    return (int)a;
+}
+
+//utilities
+
+//add two chars
 extern "C" DLLEXPORT const char* concat_chars_chars(char* a,char* b) {
     std::string* out = new std::string((std::string(a)+std::string(b)));
     return out->data();
 }
-
-extern "C" DLLEXPORT float pow_float_float(float a, float b) {
+//power of
+extern "C" DLLEXPORT float power_float_float(float a, float b) {
     return pow(a,b);
 }

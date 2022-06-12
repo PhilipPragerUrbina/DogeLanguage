@@ -5,6 +5,7 @@
 #ifndef PROGRAM_IRCOMPILER_HPP
 #define PROGRAM_IRCOMPILER_HPP
 
+#include <filesystem>
 #include "Environment.hpp"
 
 #include "llvm/ADT/APFloat.h"
@@ -36,12 +37,7 @@
 //compile AST to llvm intermediate representation
 class IRCompiler : public Visitor {
 public:
-    //set up llvm
-    llvm::LLVMContext m_context;
-    llvm::IRBuilder<> m_builder{m_context};
-    llvm::Module m_module{"Doge Language", m_context};
-    std::map<std::string,statementList> m_external_files;
-    std::vector<std::string> externals;
+
     //run the interpreter
     void compile(statementList statements, std::map<std::string,statementList> external_files, ErrorHandler *error_handler) {
         //setup error handler
@@ -76,9 +72,8 @@ public:
         m_module.print(llvm::outs(), nullptr);
     }
 
-    void printFile() {
+    void printFile(std::string filename) {
         //create output file
-        std::string filename = "output.ll";
         std::error_code stream_error;
         llvm::raw_fd_ostream dest(filename, stream_error, llvm::sys::fs::OF_None);
         if (stream_error) {
@@ -92,7 +87,7 @@ public:
     }
 
     //Create object file
-    void build() {
+    void build(std::string out_name) {
         //initialize
         llvm::InitializeAllTargetInfos();
         llvm::InitializeAllTargets();
@@ -121,8 +116,17 @@ public:
         m_module.setTargetTriple(desired_target);
 
         //create output file
-        std::string filename = "output.o";
+        std::string filename = out_name;
+        std::filesystem::path file_path = out_name;
+        m_object_filename = out_name;
         auto file_type = llvm::CodeGenFileType::CGFT_ObjectFile;
+        if(file_path.extension() == ".s") {
+            file_type =  llvm::CodeGenFileType::CGFT_AssemblyFile;
+        }else if(file_path.extension() != ".o"){
+            llvm::errs() << "Can only output object or assembly file.";
+            return;
+        }
+
         std::error_code stream_error;
         llvm::raw_fd_ostream dest(filename, stream_error, llvm::sys::fs::OF_None);
         if (stream_error) {
@@ -142,7 +146,7 @@ public:
         dest.close();
     }
 
-    void assemble() {
+    void assemble(std::string out_name) {
         //assemble file to executable using clang
 
         //add external cpp or .o files
@@ -151,7 +155,7 @@ public:
             dependencies = dependencies + " " + external;
         }
 
-        system(("clang++"+ dependencies + " output.o -o output.exe").c_str());
+        system(("clang++" + dependencies + " " + m_object_filename + " -o " + out_name).c_str());
     }
 
     //statements
@@ -746,6 +750,17 @@ public:
     };
 
 private:
+    //set up llvm
+    llvm::LLVMContext m_context;
+    llvm::IRBuilder<> m_builder{m_context};
+    llvm::Module m_module{"Doge Language", m_context};
+    //additional files
+    std::map<std::string,statementList> m_external_files;
+    //additional cpp or .o to link.
+    std::vector<std::string> externals;
+    //filename of output
+    std::string m_object_filename = "output.o";
+
     //current environment
     Environment *m_environment;
     //top level environment

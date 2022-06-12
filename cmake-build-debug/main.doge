@@ -1,6 +1,5 @@
 #import SL;
 
-
 float pi(float n) {
     float sum = 0.0;
     float sign = 1.0;
@@ -16,12 +15,11 @@ int main(){
 
 string s = string("Enter precision");
 s = s + ": ";
-s.print();
+print(s);
 
-
-float in = inF();
+float in = floatIn();
 newLine();
-printFloat(pi(in));
+print(pi(in));
 return 0;
 
 }

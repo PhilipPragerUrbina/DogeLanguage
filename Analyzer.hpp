@@ -74,7 +74,7 @@ public:
 
         }
         if(statement->m_class_name != ""){
-            overload = overload + "_" + statement->m_class_name;
+            overload = overload + "_" + statement->m_class_name+"_";
         }
 
         m_top->define(statement->m_name.original + "_function" + overload ,function);
@@ -183,14 +183,14 @@ public:
 
         if(Callable* function = std::get_if<Callable>(&callee_obj)) {
                 if(function->m_class != ""){
-                        overload = overload + "_" + function->m_declaration->m_class_name;}
+                        overload = overload + "_" + function->m_declaration->m_class_name+"_";}
         }
 
         //if class check constructor
         std::string class_return = "";
         if(Class* class_type = std::get_if<Class>(&callee_obj)) {
             class_return =  class_type->m_name;
-            callee_obj = m_environment->getValue(class_type->m_name + "_function" + overload + "_" + class_type->m_name);
+            callee_obj = m_environment->getValue(class_type->m_name + "_function" + overload + "_" + class_type->m_name+"_");
             if(expression->m_arguments.empty()){
                 //ignore default constructor
                 if(std::get_if<null_object>(&callee_obj)){
@@ -211,7 +211,7 @@ public:
             for (Expression* argument : expression->m_arguments) {
                 if (argument_number+1 > function->m_argument_number) {
                     m_error_handler->error("too many function arguments: " + std::to_string(argument_number) + " expected: " +
-                                           std::to_string(function->m_argument_number)); return (std::string)"null";}
+                                           std::to_string(function->m_argument_number) + function->m_declaration->m_name.original + overload); return (std::string)"null";}
 
                 std::string type  = evalS(argument);
 
@@ -470,7 +470,7 @@ private:
     }
     //overloading checkers
     std::string checkOperator(std::string left, std::string right, std::string op){
-        std::string callee = op + "_function_" + right + "_" + left;
+        std::string callee = op + "_function_" + right + "_" + left+"_";
         object callee_obj = m_environment->getValue(callee);
         if(Callable* function = std::get_if<Callable>(&callee_obj)){
             if(function->m_argument_number != 1){
@@ -482,7 +482,7 @@ private:
         return (std::string)"null";
     }
     std::string checkUnaryOperator(std::string right, std::string op){
-        std::string callee = op + "_function_" + right;
+        std::string callee = op + "_function_" + right+"_";
         object callee_obj = m_environment->getValue(callee);
         if(Callable* function = std::get_if<Callable>(&callee_obj)){
             if(function->m_argument_number != 0){

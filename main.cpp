@@ -4,44 +4,42 @@
 #include <iostream>
 
 #include "File.hpp"
-#include "ErrorHandler.hpp"
 #include "Scanner.hpp"
 #include "Parser.hpp"
-#include "Printers.hpp"
-#include "Interpreter.hpp"
 #include "IRCompiler.hpp"
+#include "Analyzer.hpp"
 
 #include <windows.h>
 #include <filesystem>
-#include "Analyzer.hpp"
+
 
 int main(int argc, char* args[]) {
-
     //enable colors
     system(("chcp " + std::to_string(CP_UTF8)).c_str());
-
     //show starting message
     Color::start(BLUE);
     std::cout << "Using DogeLang " << DOGE_LANGUAGE_VERSION << " \n";
     Color::end();
 
-    //default file
-    std::string filename = "main.doge";
+    //default files
+    std::string source_filename = "main.doge";
+    std::string object_filename = "output.o";
+    std::string executable_filename = "output.exe";
+
     //check if other file specified
-    if (argc > 1){filename = args[1];}
+    if (argc > 1){ source_filename = args[1];}
 
     //TODO work with multiple custom source files
-    //TODO work with custom build path and file type
     //check if source was modified since last build
-    std::filesystem::path source_path(filename);
+    std::filesystem::path source_path(source_filename);
     auto source_modify_time = last_write_time(source_path);
-    std::filesystem::path build_path("output.exe");
+    std::filesystem::path build_path(executable_filename);
     if(exists(build_path)){
         auto build_modify_time = last_write_time(build_path);
         if(source_modify_time < build_modify_time){
             //source has not changed, just run
             std::cout << "\n No changes detected. Running build... \n";
-            system("output.exe");
+            system(executable_filename.c_str());
             return 0;
         }
     }
@@ -51,7 +49,7 @@ int main(int argc, char* args[]) {
 
 
     //read file
-    File main_file(filename);
+    File main_file(source_filename);
     //file did not open
     if(!main_file.read()){return 1;}
     //scan file
@@ -88,14 +86,11 @@ int main(int argc, char* args[]) {
     }
 
 
-
-
     //check
     Analyzer analyzer;
     if(analyzer.check(statements,external_files,&error_handler)){
         return 1;
     }
-
 
     //compile
     std::cout << "\n Compiling... \n" ;
@@ -118,25 +113,22 @@ int main(int argc, char* args[]) {
     compiler.print();
 
     //build to .o
-    compiler.build();
+    compiler.build(object_filename);
 
     //assemble
     std::cout << "\n Assembling... \n";
-    compiler.assemble();
+    compiler.assemble(executable_filename);
 
     //run file
     std::cout << "\n Running... \n";
-    system("output.exe");
+    system(executable_filename.c_str());
 
     return 0;
 }
 
 
-
-
 /*
-
-        //choose random colors for syntax highlighting
+//choose random colors for syntax highlighting
     std::map<int,TextColor> colors;
     //same colors very time
     srand(0);
