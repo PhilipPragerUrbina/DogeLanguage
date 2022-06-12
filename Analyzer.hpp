@@ -40,14 +40,23 @@ public:
     }
     object visitFunctionStatement(FunctionStatement *statement) {
         Callable function =  Callable(statement->m_parameters.size(), nullptr,statement);
+        std::string overload = "";
+        for (int i = 0; i < statement->m_parameters.size(); i++) {
+                overload = overload + "_" + statement->m_parameters[i]->m_type.original;
 
-        m_top->define(statement->m_name.original + "_function",function);
-        std::string name = statement->m_name.original;
+        }
+        if(statement->m_class_name != ""){
+            overload = overload + "_" + statement->m_class_name;
+        }
+
+        m_top->define(statement->m_name.original + "_function" + overload ,function);
+        m_top->define(statement->m_name.original + "_function" ,function);
+        std::string name = statement->m_name.original ;
         if(name == statement->m_class_name){
             name = name + "_constructor";
         }
 
-        m_environment->define(name ,statement->m_name.original + "_function");
+        m_environment->define(name ,statement->m_name.original + "_function" );
         if(statement->m_body.empty()){
             return (std::string)"null";
         }
@@ -136,11 +145,24 @@ public:
         std::string callee = evalS(expression->m_callee);
         object callee_obj = m_environment->getValue(callee);
 
+
+
+        std::string overload = "";
+        for (int i = 0; i < expression->m_arguments.size(); i++) {
+            overload = overload + "_" + evalS(expression->m_arguments[i]);
+
+        }
+
+        if(Callable* function = std::get_if<Callable>(&callee_obj)) {
+                if(function->m_class != ""){
+                        overload = overload + "_" + function->m_declaration->m_class_name;}
+        }
+
         //if class check constructor
         std::string class_return = "";
         if(Class* class_type = std::get_if<Class>(&callee_obj)) {
             class_return =  class_type->m_name;
-            callee_obj = m_environment->getValue(class_type->m_name + "_function");
+            callee_obj = m_environment->getValue(class_type->m_name + "_function" + overload + "_" + class_type->m_name);
             if(expression->m_arguments.empty()){
                 //ignore default constructor
                 if(std::get_if<null_object>(&callee_obj)){
@@ -148,7 +170,14 @@ public:
                 }
             }
         }
+        if(class_return == ""){
+            callee_obj = m_environment->getValue(callee + overload);
+        }
+
+
+
         if(Callable* function = std::get_if<Callable>(&callee_obj)){
+
             int argument_number = 0;
 
             for (Expression* argument : expression->m_arguments) {
@@ -175,7 +204,7 @@ public:
 
 
 
-        m_error_handler->error(expression->m_line, "Can not call non callable.");
+        m_error_handler->error(expression->m_line, "Can not call non callable: " + callee + overload);
         return (std::string)"null";
     }
 
@@ -255,7 +284,6 @@ public:
     object visitBinaryExpression(Binary* expression){
         std::string right = evalS(expression->m_right);
         std::string left = evalS(expression->m_left);
-        //TODO add operator overloading
         switch (expression->m_operator_.type) {
             case BANG_EQUAL:
                 if(left == "bool" && right == "bool"){
@@ -266,7 +294,10 @@ public:
                 }
                 if(left == "int" && right == "int"){
                     return std::string("int");
+                } else{
+                    return checkOperator(left,right, "bangEqual");
                 }
+
             case EQUAL_EQUAL:
                 if(left == "bool" && right == "bool"){
                     return (std::string)"bool";
@@ -276,6 +307,8 @@ public:
                 }
                 if(left == "int" && right == "int"){
                     return (std::string)"int";
+                } else{
+                    return checkOperator(left,right, "equalEqual");
                 }
             case GREATER:
                 if(left == "float" && right == "float"){
@@ -283,6 +316,8 @@ public:
                 }
                 if(left == "int" && right == "int"){
                     return (std::string)"int";
+                } else{
+                    return checkOperator(left,right, "greater");
                 }
             case GREATER_EQUAL:
                 if(left == "float" && right == "float"){
@@ -290,6 +325,8 @@ public:
                 }
                 if(left == "int" && right == "int"){
                     return (std::string)"int";
+                } else{
+                    return checkOperator(left,right, "greaterEqual");
                 }
             case LESS:
                 if(left == "float" && right == "float"){
@@ -297,6 +334,8 @@ public:
                 }
                 if(left == "int" && right == "int"){
                     return (std::string)"int";
+                } else{
+                    return checkOperator(left,right, "less");
                 }
             case LESS_EQUAL:
                 if(left == "float" && right == "float"){
@@ -304,6 +343,8 @@ public:
                 }
                 if(left == "int" && right == "int"){
                     return std::string("int");
+                } else{
+                    return checkOperator(left,right, "lessEqual");
                 }
             case MINUS:
                 if(left == "float" && right == "float"){
@@ -311,6 +352,8 @@ public:
                 }
                 if(left == "int" && right == "int"){
                     return std::string("int");
+                } else{
+                    return checkOperator(left,right, "minus");
                 }
             case SLASH:
                 if(left == "float" && right == "float"){
@@ -318,6 +361,8 @@ public:
                 }
                 if(left == "int" && right == "int"){
                     return std::string("int");
+                } else{
+                    return checkOperator(left,right, "slash");
                 }
             case STAR:
                 if(left == "float" && right == "float"){
@@ -325,18 +370,24 @@ public:
                 }
                 if(left == "int" && right == "int"){
                     return std::string("int");
+                } else{
+                    return checkOperator(left,right, "star");
                 }
             case PLUS:
                 if(left == "float" && right == "float"){
                     return std::string("float");
                 }
-                if(left == "int" && right == "int"){
+                 if(left == "int" && right == "int"){
                     return std::string("int");
                 }
-                if(left == "string" && right == "string"){
+                 if(left == "string" && right == "string"){
                     return std::string("string");
                 }
+                else{
+                    return checkOperator(left,right, "plus");
+                }
         }
+        //TODO fix this unreachable error
         m_error_handler->error(expression->m_line,"Not a binary type for: " + expression->m_operator_.original);
         return std::string("null");
     };
@@ -364,6 +415,8 @@ public:
                 }
                 if(right == "float"){
                     return std::string("float");
+                } else{
+                    return checkUnaryOperator(right, "negative");
                 }
         }
         m_error_handler->error(expression->m_line,"Not a unary type.");
@@ -389,6 +442,31 @@ private:
         }
         m_environment = pre;
         return std::string("null");
+    }
+    //overloading checkers
+    std::string checkOperator(std::string left, std::string right, std::string op){
+        std::string callee = op + "_function_" + right + "_" + left;
+        object callee_obj = m_environment->getValue(callee);
+        if(Callable* function = std::get_if<Callable>(&callee_obj)){
+            if(function->m_argument_number != 1){
+                m_error_handler->error( "Overloaded binary operator must have 1 additional argument: " + callee);
+            }
+            return function->m_declaration->m_type.original;
+        }
+        m_error_handler->error("Overloaded operator does not exist: " + callee);
+        return (std::string)"null";
+    }
+    std::string checkUnaryOperator(std::string right, std::string op){
+        std::string callee = op + "_function_" + right;
+        object callee_obj = m_environment->getValue(callee);
+        if(Callable* function = std::get_if<Callable>(&callee_obj)){
+            if(function->m_argument_number != 0){
+                m_error_handler->error( "Overloaded unary operator must mo arguments: " + callee);
+            }
+            return function->m_declaration->m_type.original;
+        }
+        m_error_handler->error("Overloaded unary operator does not exist: " + callee);
+        return (std::string)"null";
     }
 };
 
