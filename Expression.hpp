@@ -325,15 +325,17 @@ public:
 };
 class IncludeStatement : public Statement {
 public:
-    IncludeStatement(Expression* name, int line) {
+    IncludeStatement(Token name, int line, bool link) {
         m_name = name;
         m_line = line;
+        m_link = link;
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitIncludeStatement(this);
     }
-    Expression* m_name;
+    bool m_link;
+    Token m_name;
 };
 
 class VariableStatement : public Statement {

@@ -8,12 +8,13 @@
 
 class Analyzer : public Visitor{
 public:
+    std::map<std::string,statementList> m_external_files;
     //run the Analyzer. return true if ok.
-    bool check(statementList statements,ErrorHandler* error_handler) {
+    bool check(statementList statements, std::map<std::string,statementList> external_files,ErrorHandler* error_handler) {
         //setup error handler
         m_error_handler = error_handler;
         m_error_handler->m_name = "Analyzer";
-
+        m_external_files = external_files;
         //set up main env
         m_environment = new Environment();
         m_top = m_environment;
@@ -28,7 +29,34 @@ public:
 
     //statements
     object visitImportStatement(ImportStatement *statement){
-        //TODO check errors for imports here
+        if (m_external_files.find(statement->m_name.original) == m_external_files.end() ) {
+            m_error_handler->error(statement->m_line, "Cannot find import: " + statement->m_name.original);
+            return std::string("null");
+        }
+        statementList statements = m_external_files[statement->m_name.original];
+        for (Statement *new_statement: statements) {
+            new_statement->accept(this);
+        }
+        return std::string("null");
+    }
+
+    object visitIncludeStatement(IncludeStatement *statement) {
+        if(statement->m_link){
+            //check if c++ file or precompiled file which are supported
+            std::filesystem::path file_path = std::get<std::string>(statement->m_name.value);
+            if(file_path.extension() != ".o" && file_path.extension() != ".cpp") {
+                m_error_handler->error(statement->m_line, "Cannot link this file: " + std::get<std::string>(statement->m_name.value));
+            }
+            return std::string("null");
+        }
+        if (m_external_files.find(std::get<std::string>(statement->m_name.value)) == m_external_files.end() ) {
+            m_error_handler->error(statement->m_line, "Cannot find include: " + std::get<std::string>(statement->m_name.value));
+            return std::string("null");
+        }
+        statementList statements = m_external_files[std::get<std::string>(statement->m_name.value)];
+        for (Statement *new_statement: statements) {
+            new_statement->accept(this);
+        }
         return std::string("null");
     }
 
@@ -380,9 +408,6 @@ public:
                  if(left == "int" && right == "int"){
                     return std::string("int");
                 }
-                 if(left == "string" && right == "string"){
-                    return std::string("string");
-                }
                 else{
                     return checkOperator(left,right, "plus");
                 }
@@ -398,7 +423,7 @@ public:
         if(int* number =std::get_if<int>(& expression->m_value)){ return std::string ("int");}
         if(float* number =std::get_if<float>(& expression->m_value)){ return (std::string)"float";}
         if(bool* boolean =std::get_if<bool>(& expression->m_value)){ return (std::string)"bool";}
-        if(std::string* s =std::get_if<std::string>(& expression->m_value)){return (std::string)"string";}
+        if(std::string* s =std::get_if<std::string>(& expression->m_value)){return (std::string)"chars";}
         m_error_handler->error(expression->m_line,"Unknown type.");
         return std::string("null");
     };

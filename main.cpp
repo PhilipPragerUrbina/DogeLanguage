@@ -27,24 +27,14 @@ int main(int argc, char* args[]) {
 
     //default file
     std::string filename = "main.doge";
-
-
     //check if other file specified
     if (argc > 1){filename = args[1];}
-
-    //read file
-    File main_file(filename);
-    //file did not open
-    if(!main_file.read()){
-        return 1;
-    }
 
     //TODO work with multiple custom source files
     //TODO work with custom build path and file type
     //check if source was modified since last build
     std::filesystem::path source_path(filename);
     auto source_modify_time = last_write_time(source_path);
-
     std::filesystem::path build_path("output.exe");
     if(exists(build_path)){
         auto build_modify_time = last_write_time(build_path);
@@ -56,34 +46,53 @@ int main(int argc, char* args[]) {
         }
     }
 
-
-
     //create error handler
     ErrorHandler error_handler;
 
+
+    //read file
+    File main_file(filename);
+    //file did not open
+    if(!main_file.read()){return 1;}
     //scan file
     Scanner scanner(main_file.getData(),&error_handler);
     scanner.scan();
-
     //check for errors
-    if(error_handler.hasErrors()){
-        return 1;
-    }
-
+    if(error_handler.hasErrors()){return 1;}
     //get tokens
     std::vector<Token> tokens = scanner.getTokens();
-
     //parse code
     Parser parser(tokens,&error_handler);
-   statementList statements  = parser.parse();
+    statementList statements  = parser.parse();
+    if(error_handler.hasErrors()){return 1;}
 
-    //check for errors
-    if(error_handler.hasErrors()){
-        return 1;
+    std::map<std::string,statementList> external_files;
+
+    for(std::string include : parser.m_includes){
+        File file(include);
+        if(!file.read()){return 1;}
+        Scanner include_scanner(file.getData(),&error_handler);
+        include_scanner.scan();
+        Parser include_parser(include_scanner.getTokens(),&error_handler);
+        external_files[include] = include_parser.parse();
+        if(error_handler.hasErrors()){return 1;}
     }
+    for(std::string import : parser.m_imports){
+        File file(import + ".dogel");
+        if(!file.read()){return 1;}
+        Scanner include_scanner(file.getData(),&error_handler);
+        include_scanner.scan();
+        Parser include_parser(include_scanner.getTokens(),&error_handler);
+        external_files[import] = include_parser.parse();
+        if(error_handler.hasErrors()){return 1;}
+    }
+
+
+
+
     //check
     Analyzer analyzer;
-    if(analyzer.check(statements,&error_handler)){
+    if(analyzer.check(statements,external_files,&error_handler)){
         return 1;
     }
 
@@ -91,7 +100,7 @@ int main(int argc, char* args[]) {
     //compile
     std::cout << "\n Compiling... \n" ;
     IRCompiler compiler;
-    compiler.compile(statements,&error_handler);
+    compiler.compile(statements,external_files,&error_handler);
 
     //check for errors
     if(error_handler.hasErrors()){

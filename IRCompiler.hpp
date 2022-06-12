@@ -40,13 +40,15 @@ public:
     llvm::LLVMContext m_context;
     llvm::IRBuilder<> m_builder{m_context};
     llvm::Module m_module{"Doge Language", m_context};
-
+    std::map<std::string,statementList> m_external_files;
+    std::vector<std::string> externals;
     //run the interpreter
-    void compile(statementList statements, ErrorHandler *error_handler) {
+    void compile(statementList statements, std::map<std::string,statementList> external_files, ErrorHandler *error_handler) {
         //setup error handler
         m_error_handler = error_handler;
         m_error_handler->m_name = "IR Compiler";
         m_visitor_name = "IR compiler";
+        m_external_files = external_files;
 
         //create top level env
         m_environment = new Environment();
@@ -142,10 +144,40 @@ public:
 
     void assemble() {
         //assemble file to executable using clang
-        system("clang++ output.cpp output.o -o output.exe");
+
+        //add external cpp or .o files
+        std::string dependencies = "";
+        for(std::string external : externals){
+            dependencies = dependencies + " " + external;
+        }
+
+        system(("clang++"+ dependencies + " output.o -o output.exe").c_str());
     }
 
     //statements
+
+    //import code from other files
+    object visitImportStatement(ImportStatement *statement) {
+        statementList statements = m_external_files[statement->m_name.original];
+        //run each statement
+        for (Statement *new_statement: statements) {
+            new_statement->accept(this);
+        }
+        return null_object();
+    }
+    object visitIncludeStatement(IncludeStatement *statement) {
+        if(statement->m_link){
+            //set .o or .cpp files to be linked when made executable
+            externals.push_back(std::get<std::string>(statement->m_name.value));
+            return null_object();
+        }
+        statementList statements = m_external_files[std::get<std::string>(statement->m_name.value)];
+        //run each statement
+        for (Statement *new_statement: statements) {
+            new_statement->accept(this);
+        }
+        return null_object();
+    }
 
     object visitClassStatement(ClassStatement *statement) {
         //create new type
@@ -770,7 +802,7 @@ private:
             return llvm::Type::getInt32Ty(m_context);
         } else if (type_name == "float") {
             return llvm::Type::getFloatTy(m_context);
-        } else if (type_name == "string") {
+        } else if (type_name == "chars") {
             return llvm::Type::getInt8PtrTy(m_context);
         }
         else if (type_name == "void") {
@@ -795,7 +827,7 @@ private:
         }else if(type->isIntegerTy(1)){
             return "bool";
         }else if(type->isPointerTy()){
-            return "string";
+            return "chars";
         }else if(type->isVoidTy()){
             return "void";
         }else if(type->isStructTy()){

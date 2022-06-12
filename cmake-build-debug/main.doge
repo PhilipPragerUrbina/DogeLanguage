@@ -1,8 +1,8 @@
-
+#link "output.cpp";
 //externals
 extern int printFloat(float a);
 extern float inF();
-extern int printC(string a);
+extern int printC(chars a);
 extern int newLine();
 extern float pow(float base, float exp);
 
@@ -19,7 +19,7 @@ float pi(float n) {
 }
 
 //main function
-int DogeMain(){
+int main(){
 printC("Enter precision: ");
 float in = inF();
 newLine();

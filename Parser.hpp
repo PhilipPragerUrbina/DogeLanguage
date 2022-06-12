@@ -27,10 +27,15 @@ public:
         }
         return statements;
     }
+    std::vector<std::string> m_imports;
+    std::vector<std::string> m_includes;
 private:
     //for handling errors
     ErrorHandler* m_error_handler;
     std::vector<Token> m_tokens;
+
+
+
     //current token
     int m_current = 0;
     //current class
@@ -104,12 +109,18 @@ private:
         if(match({IMPORT})){
             Token name = consume(IDENTIFIER, "Expected import m_visitor_name.");
             consume(SEMICOLON, "Expected ; after import.");
+            m_imports.push_back(name.original);
             return new ImportStatement(name, getLine());
         }
         else if(match({INCLUDE})){
-            Expression* directory = expression();
+            Token directory = consume(STRING, "Expected include directory.");
             consume(SEMICOLON, "Expected ; after include.");
-            return new IncludeStatement(directory, getLine());
+            m_includes.push_back(std::get<std::string>(directory.value));
+            return new IncludeStatement(directory, getLine(),false);
+        }  else if(match({LINK})){
+            Token directory = consume(STRING, "Expected link directory.");
+            consume(SEMICOLON, "Expected ; after include.");
+            return new IncludeStatement(directory, getLine(), true);
         }
         m_error_handler->error("Expected imports or includes.");
         return nullptr;

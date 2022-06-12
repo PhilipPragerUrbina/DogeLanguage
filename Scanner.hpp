@@ -93,7 +93,7 @@ enum TokenType {
     IDENTIFIER, STRING, INTEGER, FLOATING,EXTERN,
     //words.
     AND, CLASS, ELSE, FALSE, FOR, IF, NIL, OR,
-    RETURN, SUPER, THIS, TRUE, VAR, WHILE,REFERENCE,CONST,BREAK, CONTINUE,HASH,IMPORT, INCLUDE,INC, DEC,
+    RETURN, SUPER, THIS, TRUE, VAR, WHILE,REFERENCE,CONST,BREAK, CONTINUE,HASH,IMPORT, INCLUDE,INC, DEC,LINK,
     //end of file
     END
 };
@@ -146,10 +146,11 @@ public:
         m_keywords[ "void" ] = VAR;
         m_keywords[ "int" ] = VAR;
         m_keywords[ "float" ] = VAR;
-        m_keywords[ "string" ] = VAR;
+        m_keywords[ "chars" ] = VAR;
         m_keywords[ "while" ] = WHILE;
         m_keywords[ "include" ] = INCLUDE;
         m_keywords[ "import" ] = IMPORT;
+        m_keywords[ "link" ] = LINK;
         m_keywords[ "extern" ] = EXTERN;
     }
 
