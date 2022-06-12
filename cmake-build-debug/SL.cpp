@@ -1,5 +1,6 @@
 #include <iostream>
 #include<string>
+
 #ifdef _WIN32
 #define DLLEXPORT __declspec(dllexport)
 #else
@@ -7,7 +8,7 @@
 #endif
 
 
-//temporary standard library
+// standard library
 //print a char from a float
 extern "C" DLLEXPORT int putF_float(float X) {
     fputc((char)X, stdout);

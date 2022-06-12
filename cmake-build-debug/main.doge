@@ -1,11 +1,4 @@
-#link "output.cpp";
-//externals
-extern int printFloat(float a);
-extern float inF();
-extern int printC(chars a);
-extern int newLine();
-extern float pow(float base, float exp);
-
+#import SL;
 
 
 float pi(float n) {
@@ -20,7 +13,12 @@ float pi(float n) {
 
 //main function
 int main(){
-printC("Enter precision: ");
+
+string s = string("Enter precision");
+s = s + ": ";
+s.print();
+
+
 float in = inF();
 newLine();
 printFloat(pi(in));

@@ -1,0 +1,33 @@
+#link "SL.cpp";
+//externals
+extern int printFloat(float a);
+extern float inF();
+extern int printC(chars a);
+extern int newLine();
+extern float pow(float base, float exp);
+extern chars toString(float a);
+extern chars toString(int a);
+extern chars concat(chars a,chars b);
+
+
+class string{
+chars m_chars;
+void string(chars c){
+    m_chars = c;
+}
+
+string plus(chars c){
+    chars new =  concat(m_chars,c);
+
+      return string(new);
+}
+string plus(string b){
+    chars new = concat(m_chars,b.m_chars);
+
+    return string(new);
+}
+void print(){
+    printC(m_chars);
+}
+
+}
