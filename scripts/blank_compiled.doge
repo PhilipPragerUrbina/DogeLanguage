@@ -1,0 +1,17 @@
+
+//externals
+extern int printFloat(float a);
+extern float inF();
+extern int inI();
+extern int printC(string a);
+extern int newLine();
+extern string toString(float a);
+extern string toString(int a);
+extern string concat(string a,string b);
+
+//main function
+int DogeMain(){
+
+return 0;
+
+}
