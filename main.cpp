@@ -44,14 +44,18 @@ int main(int argc, char* args[]) {
     //check if source was modified since last build
     std::filesystem::path source_path(filename);
     auto source_modify_time = last_write_time(source_path);
+
     std::filesystem::path build_path("output.exe");
-    auto build_modify_time = last_write_time(build_path);
-    if(source_modify_time < build_modify_time){
-        //source has not changed, just run
-        std::cout << "\n No changes detected. Running build... \n";
-        system("build.exe");
-        return 0;
+    if(exists(build_path)){
+        auto build_modify_time = last_write_time(build_path);
+        if(source_modify_time < build_modify_time){
+            //source has not changed, just run
+            std::cout << "\n No changes detected. Running build... \n";
+            system("output.exe");
+            return 0;
+        }
     }
+
 
 
     //create error handler
@@ -113,7 +117,7 @@ int main(int argc, char* args[]) {
 
     //run file
     std::cout << "\n Running... \n";
-    system("build.exe");
+    system("output.exe");
 
     return 0;
 }
