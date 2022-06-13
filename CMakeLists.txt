@@ -13,7 +13,7 @@ include_directories(${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
-add_executable(doge main.cpp Scanner.hpp File.hpp ErrorHandler.hpp Color.hpp Expression.hpp Parser.hpp Printers.hpp Interpreter.hpp Environment.hpp Callable.hpp IRCompiler.hpp Analyzer.hpp)
+add_executable(doge main.cpp Scanner.hpp File.hpp ErrorHandler.hpp Color.hpp Expression.hpp Parser.hpp Printers.hpp Interpreter.hpp Environment.hpp Callable.hpp IRCompiler.hpp Analyzer.hpp popl.hpp)
 
 
 #link llvm

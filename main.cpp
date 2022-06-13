@@ -1,6 +1,6 @@
 //define language version
 #define DOGE_LANGUAGE_VERSION "v0.5"
-
+#include "popl.hpp"
 #include <iostream>
 
 #include "File.hpp"
@@ -13,152 +13,171 @@
 #include <filesystem>
 
 
-int main(int argc, char* args[]) {
+int main(int argc, char **argv) {
+
+    //create command line interface
+    popl::OptionParser command_line("Doge compiler");
+    //set options
+    auto help_option = command_line.add<popl::Switch>("h", "help", "produce help message");
+    auto source_filename_option = command_line.add<popl::Value<std::string>>("s", "source", "Set source filename","main.doge");
+    auto output_filename_option = command_line.add<popl::Value<std::string>>("o", "output", "Set output filename","output.exe");
+    auto print_llvm_option = command_line.add<popl::Switch>("p", "print", "print llvm ir");
+    auto error_option = command_line.add<popl::Switch>("e", "error", "Only error check");
+    auto optimize_disable_option = command_line.add<popl::Switch>("u", "unoptimized", "Disable optimizations");
+    //parse
+    command_line.parse(argc, argv);
+    //show help
+    if (help_option->is_set()) { std::cout << command_line << "\n"; }
+
+    //get filenames
+    std::string source_filename = source_filename_option->value();
+    std::string output_filename = output_filename_option->value();
+    std::string object_filename = "";
+    std::string code_filename = "";
+    std::string executable_filename = "";
+    std::filesystem::path build_path(output_filename);
+    //set up files that need to be generated
+    if (build_path.extension() == ".exe") {
+        executable_filename = output_filename;
+        object_filename = build_path.stem().string() + ".o";
+    } else if (build_path.extension() == ".s" || build_path.extension() == ".o") {
+        object_filename = output_filename;
+    } else if (build_path.extension() == ".ll") {
+        code_filename = output_filename;
+    } else {
+        std::cerr << "Output must be .o,.ll,.s, or .exe file: " + output_filename;
+        return 1;
+    }
+
     //enable colors
     system(("chcp " + std::to_string(CP_UTF8)).c_str());
     //show starting message
     Color::start(BLUE);
-    std::cout << "Using DogeLang " << DOGE_LANGUAGE_VERSION << " \n";
+    std::cout << "Using Doge Language " << DOGE_LANGUAGE_VERSION << " \n";
+    Color::end();
+    Color::start(YELLOW);
+    std::cout << "Building " << source_filename << " to " << object_filename << " "<< code_filename<< " " << executable_filename << " \n";
     Color::end();
 
-    //default files
-    std::string source_filename = "main.doge";
-    std::string object_filename = "output.o";
-    std::string executable_filename = "output.exe";
-
-    //check if other file specified
-    if (argc > 1){ source_filename = args[1];}
-
     //TODO work with multiple custom source files
-    //check if source was modified since last build
+    //check if source is valid
     std::filesystem::path source_path(source_filename);
+    if (!exists(source_path)) {
+        std::cerr << "Cannot find source file: " + source_filename;
+        return 1;
+    }
+    if (source_path.extension() != ".doge" && source_path.extension() != ".dogel") {
+        std::cerr << "File is not a .doge or .dogel file: " + source_filename;
+        return 1;
+    }
+    //check if source was maodified
     auto source_modify_time = last_write_time(source_path);
-    std::filesystem::path build_path(executable_filename);
-    if(exists(build_path)){
+    if (exists(build_path)) {
         auto build_modify_time = last_write_time(build_path);
-        if(source_modify_time < build_modify_time){
-            //source has not changed, just run
-            std::cout << "\n No changes detected. Running build... \n";
-            system(executable_filename.c_str());
+        if (source_modify_time < build_modify_time) {
+            //source has not changed since build, just run or exit
+            Color::start(GREEN);
+            std::cout << "\nNo changes detected.\n";
+            Color::end();
+            if(executable_filename != ""){
+                std::cout << "\nRunning build...\n";
+                system(executable_filename.c_str());
+            }
             return 0;
         }
     }
 
     //create error handler
     ErrorHandler error_handler;
-
-
+    std::cout << "\nParsing: " + source_filename +" \n";
     //read file
     File main_file(source_filename);
     //file did not open
-    if(!main_file.read()){return 1;}
+    if (!main_file.read()) { return 1; }
     //scan file
-    Scanner scanner(main_file.getData(),&error_handler);
+    Scanner scanner(main_file.getData(), &error_handler);
     scanner.scan();
     //check for errors
-    if(error_handler.hasErrors()){return 1;}
+    if (error_handler.hasErrors()) { return 1; }
     //get tokens
     std::vector<Token> tokens = scanner.getTokens();
     //parse code
-    Parser parser(tokens,&error_handler);
-    statementList statements  = parser.parse();
-    if(error_handler.hasErrors()){return 1;}
-
-    std::map<std::string,statementList> external_files;
-
-    for(std::string include : parser.m_includes){
+    Parser parser(tokens, &error_handler);
+    statementList statements = parser.parse();
+    if (error_handler.hasErrors()) { return 1; }
+    std::cout << "\nFinding... \n";
+    std::map<std::string, statementList> external_files;
+    //get included files
+    for (std::string include: parser.m_includes) {
+        std::cout << "\nParsing: " + include +" \n";
         File file(include);
-        if(!file.read()){return 1;}
-        Scanner include_scanner(file.getData(),&error_handler);
+        if (!file.read()) { return 1; }
+        Scanner include_scanner(file.getData(), &error_handler);
         include_scanner.scan();
-        Parser include_parser(include_scanner.getTokens(),&error_handler);
+        Parser include_parser(include_scanner.getTokens(), &error_handler);
         external_files[include] = include_parser.parse();
-        if(error_handler.hasErrors()){return 1;}
+        if (error_handler.hasErrors()) { return 1; }
     }
-    for(std::string import : parser.m_imports){
+    for (std::string import: parser.m_imports) {
+        std::cout << "\nParsing: " + import  +".dogel \n";
         File file(import + ".dogel");
-        if(!file.read()){return 1;}
-        Scanner include_scanner(file.getData(),&error_handler);
+        if (!file.read()) { return 1; }
+        Scanner include_scanner(file.getData(), &error_handler);
         include_scanner.scan();
-        Parser include_parser(include_scanner.getTokens(),&error_handler);
+        Parser include_parser(include_scanner.getTokens(), &error_handler);
         external_files[import] = include_parser.parse();
-        if(error_handler.hasErrors()){return 1;}
+        if (error_handler.hasErrors()) { return 1; }
     }
 
-
-    //check
+    //error check
+    std::cout << "\nChecking... \n";
     Analyzer analyzer;
-    if(analyzer.check(statements,external_files,&error_handler)){
-        return 1;
+    if (analyzer.check(statements, external_files, &error_handler)) {return 1;}
+    //check if set to fully compile
+    if(error_option->is_set()){
+        Color::start(GREEN);
+        std::cout << "\n No errors found.";
+        Color::end();
+        return 0;
     }
-
     //compile
-    std::cout << "\n Compiling... \n" ;
+    std::cout << "\nCompiling... \n";
     IRCompiler compiler;
-    compiler.compile(statements,external_files,&error_handler);
-
+    compiler.compile(statements, external_files, &error_handler);
     //check for errors
-    if(error_handler.hasErrors()){
-        return 1;
-    }
-
-    //build ir
-    std::cout << "\n Compile build: \n \n" ;
-    compiler.print();
-
+    if (error_handler.hasErrors()) {return 1;}
     //optimize ir
-    std::cout << "\n Optimizing... \n" ;
-    compiler.optimize();
-    std::cout << "\n optimize build: \n \n" ;
-    compiler.print();
-
-    //build to .o
-    compiler.build(object_filename);
-
+    if(!optimize_disable_option->is_set()){
+        std::cout << "\nOptimizing... \n";
+        compiler.optimize();
+    }
+    //Print ir
+    if(print_llvm_option->is_set()){
+        compiler.print();
+    }
+    //output llvm ir to file
+    if(code_filename != ""){
+        std::cout << "\nOutputting llvm ir... \n";
+        compiler.printFile(code_filename);
+    }
+    //build to .o or .s
+    if(object_filename != ""){
+        std::cout << "\nBuilding to object file... \n";
+        compiler.build(object_filename);
+    }
     //assemble
-    std::cout << "\n Assembling... \n";
-    compiler.assemble(executable_filename);
-
-    //run file
-    std::cout << "\n Running... \n";
-    system(executable_filename.c_str());
-
+    if(executable_filename != ""){
+        std::cout << "\nAssembling... \n";
+        compiler.assemble(executable_filename);
+        //run file
+        std::cout << "\nRunning... \n";
+        system(executable_filename.c_str());
+    }
+    Color::start(CYAN);
+    std::cout << "\nFinished.\n";
+    Color::end();
     return 0;
 }
-
-
-/*
-//choose random colors for syntax highlighting
-    std::map<int,TextColor> colors;
-    //same colors very time
-    srand(0);
-    for ( int i = LEFT_PAREN; i != END; i++ )
-    {
-        TextColor random = static_cast<TextColor>(rand() % YELLOW);
-         colors[i] = random;
-    }
-
-      //display tokens
-    std::cout << "\n \n Detected Tokens: \n \n";
-    for(Token token:tokens){
-        Color::start(colors[token.type]);
-        std::cout << token.original << "  Line: " << token.line << " Type: " << token.type << "\n";
-        Color::end();
-    }
-    std::cout << "\n \n Detected statementList: \n \n";
-    //display code
-    int last_line = 0;
-    for(Token token:tokens){
-        if(last_line != token.line){
-            last_line = token.line;
-            std::cout << "\n";
-        }
-        Color::start(colors[token.type]);
-        std::cout << token.original;
-        Color::end();
-    }
-     */
-
 /*
 //generate graph vis  file of code
 DotFileGenerator graph;
