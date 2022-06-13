@@ -5,7 +5,6 @@
 extern chars charsIn();
 //output
 extern void printChars(chars a);
-extern void newLine();
 //conversions
 extern chars toChars(float a);
 extern chars toChars(int a);

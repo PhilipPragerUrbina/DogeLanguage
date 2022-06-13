@@ -18,7 +18,7 @@ s = s + ": ";
 print(s);
 
 float in = floatIn();
-newLine();
+print("\n");
 print(pi(in));
 return 0;
 

@@ -21,9 +21,7 @@ extern "C" DLLEXPORT const char* charsIn() {
 extern "C" DLLEXPORT void printChars_chars(char* chars) {
     std::cout <<chars;
 }
-extern "C" DLLEXPORT void newLine() {
-    std::cout <<"\n";
-}
+
 
 //conversions
 extern "C" DLLEXPORT const char* toChars_float(float a) {
