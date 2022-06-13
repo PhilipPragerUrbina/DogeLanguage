@@ -161,6 +161,7 @@ public:
 
         //states that work across different lines
         bool string  = false;
+        bool escape = false;
         bool multi_comment = false;
         //for each line in file
         for(std::string line: m_lines){
@@ -193,7 +194,19 @@ public:
                         string = false;
                         addToken(STRING, m_word, "\"" + m_word + "\"");
                     }else { //add to string
-                        m_word.push_back(character);
+                        //check for escape character
+                        char to_add = character;
+                        if(escape){
+                            if(character == 'n'){
+                                to_add= '\n';
+                            }
+                            escape = false;
+                        }
+                        if(character == '\\'){
+                            escape = true;
+                        }else{
+                            m_word.push_back(to_add);
+                        }
                     }
                     m_position++; continue;
                 }
