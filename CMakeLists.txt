@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(program)
+project(doge)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -13,7 +13,7 @@ include_directories(${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
-add_executable(program main.cpp Scanner.hpp File.hpp ErrorHandler.hpp Color.hpp Expression.hpp Parser.hpp Printers.hpp Interpreter.hpp Environment.hpp Callable.hpp IRCompiler.hpp Analyzer.hpp)
+add_executable(doge main.cpp Scanner.hpp File.hpp ErrorHandler.hpp Color.hpp Expression.hpp Parser.hpp Printers.hpp Interpreter.hpp Environment.hpp Callable.hpp IRCompiler.hpp Analyzer.hpp)
 
 
 #link llvm
@@ -54,4 +54,4 @@ llvm_map_components_to_libnames(
         AArch64
 
 )
-target_link_libraries(program ${llvm_libs})
+target_link_libraries(doge ${llvm_libs})

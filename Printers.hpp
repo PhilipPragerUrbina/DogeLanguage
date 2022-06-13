@@ -126,7 +126,7 @@ private:
         m_id ++; //increment id
         name = std::to_string(m_id) + ": " + name; //make sure m_visitor_name is unique
         if(!m_prev.empty()){std::cout << "\"" + m_prev[m_prev.size()-1] + "\" -> \"" + name + "\"; \n";}else{
-            std::cout << "\" program \" -> \"" + name + "\"; \n";
+            std::cout << "\" doge \" -> \"" + name + "\"; \n";
         } //output node if parent has been created
         m_prev.push_back(name); //add to list
         for(Expression* expr : children){expr->accept(this);} //gen children
