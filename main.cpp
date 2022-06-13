@@ -1,5 +1,5 @@
 //define language version
-#define DOGE_LANGUAGE_VERSION "v0.5"
+#define DOGE_LANGUAGE_VERSION "v0.93"
 #include "popl.hpp"
 #include <iostream>
 
@@ -18,16 +18,16 @@ int main(int argc, char **argv) {
     //create command line interface
     popl::OptionParser command_line("Doge compiler");
     //set options
-    auto help_option = command_line.add<popl::Switch>("h", "help", "produce help message");
+    auto help_option = command_line.add<popl::Switch>("h", "help", "Print help message");
     auto source_filename_option = command_line.add<popl::Value<std::string>>("s", "source", "Set source filename","main.doge");
     auto output_filename_option = command_line.add<popl::Value<std::string>>("o", "output", "Set output filename","output.exe");
-    auto print_llvm_option = command_line.add<popl::Switch>("p", "print", "print llvm ir");
+    auto print_llvm_option = command_line.add<popl::Switch>("p", "print", "Print llvm ir");
     auto error_option = command_line.add<popl::Switch>("e", "error", "Only error check");
     auto optimize_disable_option = command_line.add<popl::Switch>("u", "unoptimized", "Disable optimizations");
     //parse
     command_line.parse(argc, argv);
     //show help
-    if (help_option->is_set()) { std::cout << command_line << "\n"; }
+    if (help_option->is_set()) { std::cout << command_line << "\n"; return 0;}
 
     //get filenames
     std::string source_filename = source_filename_option->value();
