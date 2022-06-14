@@ -72,7 +72,7 @@ public:
     }
 private:
     Environment* m_enclosing = nullptr;
-    //TODO test performance here
+
     //could be faster?
     std::unordered_map<std::string,object> m_values;
     std::unordered_map<std::string,bool> m_constants;

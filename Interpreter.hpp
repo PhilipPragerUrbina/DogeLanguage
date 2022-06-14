@@ -230,7 +230,7 @@ public:
     object visitBinaryExpression(Binary* expression){
         object right = eval(expression->m_right);
         object left = eval(expression->m_left);
-        //TODO add operator overloading
+
         switch (expression->m_operator_.type) {
             case BANG_EQUAL: return !isEqual(left, right);
             case EQUAL_EQUAL: return isEqual(left, right);

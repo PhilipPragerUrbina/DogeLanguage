@@ -9,6 +9,29 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <filesystem>
+#ifdef _WIN32
+#include <windows.h>
+#elif
+#include <unistd.h>
+#endif
+//helper function for getting executable directory
+std::string getExeDirectory(std::string filename)
+{
+#ifdef _WIN32
+    // Windows specific
+    wchar_t szPath[MAX_PATH];
+    GetModuleFileNameW( NULL, szPath, MAX_PATH );
+#else
+    // Linux specific
+    char szPath[PATH_MAX];
+    ssize_t count = readlink( "/proc/self/exe", szPath, PATH_MAX );
+    if( count < 0 || count >= PATH_MAX )
+        return {}; // some error
+    szPath[count] = '\0';
+#endif
+    return (std::filesystem::path{ szPath }.parent_path() / "").string() + "/" + filename; // to finish the folder path with (back)slash
+}
 
 //file class for handling multiple files
 class File {
@@ -35,7 +58,7 @@ public:
             std::cout << "File read successfully" << "\n";
 
         }else{
-            std::cerr << "Can not open file: " << filename << "\n";
+            std::cout << "Can not open file: " << filename << "\n";
         }
     }
     //is file read good
@@ -56,6 +79,9 @@ public:
     }
     const std::string operator[](const int i) {
         return m_lines[i];
+    }
+    const std::string getName(){
+        return m_filename;
     }
 
 private:

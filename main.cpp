@@ -1,14 +1,14 @@
 //define language version
-#define DOGE_LANGUAGE_VERSION "v0.93"
+#define DOGE_LANGUAGE_VERSION "v0.76"
 #include "popl.hpp"
 #include <iostream>
 
-#include "File.hpp"
+
 #include "Scanner.hpp"
 #include "Parser.hpp"
 #include "IRCompiler.hpp"
 #include "Analyzer.hpp"
-
+#include "File.hpp"
 #include <windows.h>
 #include <filesystem>
 
@@ -19,8 +19,8 @@ int main(int argc, char **argv) {
     popl::OptionParser command_line("Doge compiler");
     //set options
     auto help_option = command_line.add<popl::Switch>("h", "help", "Print help message");
-    auto source_filename_option = command_line.add<popl::Value<std::string>>("s", "source", "Set source filename","main.doge");
-    auto output_filename_option = command_line.add<popl::Value<std::string>>("o", "output", "Set output filename","output.exe");
+    auto source_filename_option = command_line.add<popl::Value<std::string>>("s", "source", "Set source filename. Can be .doge or .dogel","main.doge");
+    auto output_filename_option = command_line.add<popl::Value<std::string>>("o", "output", "Set output filename. Can be .o, .exe, .s, or .ll","output.exe");
     auto print_llvm_option = command_line.add<popl::Switch>("p", "print", "Print llvm ir");
     auto error_option = command_line.add<popl::Switch>("e", "error", "Only error check");
     auto optimize_disable_option = command_line.add<popl::Switch>("u", "unoptimized", "Disable optimizations");
@@ -59,7 +59,6 @@ int main(int argc, char **argv) {
     std::cout << "Building " << source_filename << " to " << object_filename << " "<< code_filename<< " " << executable_filename << " \n";
     Color::end();
 
-    //TODO work with multiple custom source files
     //check if source is valid
     std::filesystem::path source_path(source_filename);
     if (!exists(source_path)) {
@@ -70,22 +69,7 @@ int main(int argc, char **argv) {
         std::cerr << "File is not a .doge or .dogel file: " + source_filename;
         return 1;
     }
-    //check if source was maodified
     auto source_modify_time = last_write_time(source_path);
-    if (exists(build_path)) {
-        auto build_modify_time = last_write_time(build_path);
-        if (source_modify_time < build_modify_time) {
-            //source has not changed since build, just run or exit
-            Color::start(GREEN);
-            std::cout << "\nNo changes detected.\n";
-            Color::end();
-            if(executable_filename != ""){
-                std::cout << "\nRunning build...\n";
-                system(executable_filename.c_str());
-            }
-            return 0;
-        }
-    }
 
     //create error handler
     ErrorHandler error_handler;
@@ -112,6 +96,11 @@ int main(int argc, char **argv) {
         std::cout << "\nParsing: " + include +" \n";
         File file(include);
         if (!file.read()) { return 1; }
+        //check for changes
+        auto include_modify_time = last_write_time(std::filesystem::path(include));
+        if (source_modify_time < include_modify_time) {
+            source_modify_time = include_modify_time;
+        }
         Scanner include_scanner(file.getData(), &error_handler);
         include_scanner.scan();
         Parser include_parser(include_scanner.getTokens(), &error_handler);
@@ -120,14 +109,49 @@ int main(int argc, char **argv) {
     }
     for (std::string import: parser.m_imports) {
         std::cout << "\nParsing: " + import  +".dogel \n";
-        File file(import + ".dogel");
-        if (!file.read()) { return 1; }
-        Scanner include_scanner(file.getData(), &error_handler);
+        File* file = new File(import + ".dogel");
+        std::string link_directory = "";
+        if (!file->read()) {
+            delete file;
+            //check in exe directory
+            File* new_file = new File(getExeDirectory(import+".dogel"));
+            if(!new_file->read()){
+                return 1;
+            }
+            link_directory = getExeDirectory("");
+            file = new_file;
+        }
+        //check for changes
+        //check for changes
+        auto include_modify_time = last_write_time(std::filesystem::path(  file->getName()));
+        if (source_modify_time < include_modify_time) {
+            source_modify_time = include_modify_time;
+        }
+        Scanner include_scanner(file->getData(), &error_handler);
         include_scanner.scan();
         Parser include_parser(include_scanner.getTokens(), &error_handler);
+        include_parser.link_directory = link_directory;
         external_files[import] = include_parser.parse();
         if (error_handler.hasErrors()) { return 1; }
+        delete file;
     }
+
+
+        //check if source was modified
+        if (exists(build_path)) {
+            auto build_modify_time = last_write_time(build_path);
+            if (source_modify_time < build_modify_time) {
+                //source has not changed since build, just run or exit
+                Color::start(GREEN);
+                std::cout << "\nNo changes detected.\n";
+                Color::end();
+                if(executable_filename != ""){
+                    std::cout << "\nRunning build...\n";
+                    system(executable_filename.c_str());
+                }
+                return 0;
+            }
+        }
 
     //error check
     std::cout << "\nChecking... \n";

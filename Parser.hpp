@@ -12,6 +12,7 @@ typedef std::vector<Statement*> statementList;
 
 class Parser {
 public:
+    std::string link_directory = "";
     //create parser from tokens
     Parser(  std::vector<Token> tokens, ErrorHandler* error_handler){
         m_error_handler = error_handler;
@@ -120,6 +121,9 @@ private:
         }  else if(match({LINK})){
             Token directory = consume(STRING, "Expected link directory.");
             consume(SEMICOLON, "Expected ; after include.");
+            if(link_directory != ""){
+                directory .value = link_directory + "/" + std::get<std::string>(directory.value);
+            }
             return new IncludeStatement(directory, getLine(), true);
         }
         m_error_handler->error("Expected imports or includes.");
@@ -231,7 +235,7 @@ private:
 
         return statements;
     }
-    //TODO make proper statements for break and continue.
+
     Statement* loopStatement(){
         Token keyword = m_tokens[m_current-1];
         consume(SEMICOLON, "Expected ; after expression.");
