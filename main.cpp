@@ -21,6 +21,7 @@ int main(int argc, char **argv) {
     auto help_option = command_line.add<popl::Switch>("h", "help", "Print help message");
     auto source_filename_option = command_line.add<popl::Value<std::string>>("s", "source", "Set source filename. Can be .doge or .dogel","main.doge");
     auto output_filename_option = command_line.add<popl::Value<std::string>>("o", "output", "Set output filename. Can be .o, .exe, .s, or .ll","output.exe");
+    auto vcvarsall_option = command_line.add<popl::Value<std::string>>("m", "vcvarsall", "Set the folder where the visual studio vcvarsall.bat is located for msvc","");
     auto print_llvm_option = command_line.add<popl::Switch>("p", "print", "Print llvm ir");
     auto error_option = command_line.add<popl::Switch>("e", "error", "Only error check");
     auto optimize_disable_option = command_line.add<popl::Switch>("u", "unoptimized", "Disable optimizations");
@@ -32,6 +33,7 @@ int main(int argc, char **argv) {
     //get filenames
     std::string source_filename = source_filename_option->value();
     std::string output_filename = output_filename_option->value();
+    std::string vcvarsall_location = vcvarsall_option->value();
     std::string object_filename = "";
     std::string code_filename = "";
     std::string executable_filename = "";
@@ -192,10 +194,11 @@ int main(int argc, char **argv) {
     //assemble
     if(executable_filename != ""){
         std::cout << "\nAssembling... \n";
-        compiler.assemble(executable_filename);
-        //run file
-        std::cout << "\nRunning... \n";
-        system(executable_filename.c_str());
+        if(compiler.assemble(executable_filename, vcvarsall_location)){
+            //run file
+            std::cout << "\nRunning... \n";
+            system(executable_filename.c_str());
+        };
     }
     Color::start(CYAN);
     std::cout << "\nFinished.\n";

@@ -1,6 +1,5 @@
 #include <iostream>
 #include<string>
-
 #ifdef _WIN32
 #define DLLEXPORT __declspec(dllexport)
 #else
@@ -52,5 +51,5 @@ extern "C" DLLEXPORT const char* concat_chars_chars(char* a,char* b) {
 }
 //power of
 extern "C" DLLEXPORT float power_float_float(float a, float b) {
-    return pow(a,b);
+    return std::pow(a,b);
 }

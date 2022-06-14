@@ -146,16 +146,41 @@ public:
         dest.close();
     }
 
-    void assemble(std::string out_name) {
+    bool assemble(std::string out_name,std::string vcvarsall_location) {
         //assemble file to executable using clang
-
         //add external cpp or .o files
         std::string dependencies = "";
-        for(std::string external : externals){
-            dependencies = dependencies + " " + external;
-        }
+        for(std::string external : externals){dependencies = dependencies + " " + external;}
+        //check which compilers work for assembling and linking
+        if(system(("clang++" + dependencies + " " + m_object_filename + " -o " + out_name).c_str())){
+            Color::start(YELLOW);std::cout << "Error with clang, trying gcc \n";Color::end();
+            if(system(("g++" + dependencies + " " + m_object_filename + " -o " + out_name).c_str())) {
+                Color::start(YELLOW);std::cout << "Error with gcc, trying msvc \n"; Color::end();
+                if(vcvarsall_location == ""){
+                    Color::start(RED);std::cout << "\n \n Please define vcvarsall.bat folder location for msvc using -m!!!! \n";Color::end();
+                    return false;
+                }
+                std::filesystem::path current = std::filesystem::current_path();
+                std::cout << "going to: " << vcvarsall_location << "\n";
+                std::cout << "Running " << "vcvarsall.bat x64" << "\n";
+                std::cout << "going to: " << current << "\n";
+                std::cout << "Running " << "cl" + dependencies + " " + m_object_filename + " -o " + out_name << "\n";
+                if(system(("cd " + vcvarsall_location + " && vcvarsall.bat x64 && cd " + current.string() + " && cl" + dependencies + " " + m_object_filename + " -o " + out_name).c_str())) {
+                    Color::start(RED);std::cout << "Error with msvc.\n";Color::end();
+                    return false;
+                }else{
+                    Color::start(GREEN);std::cout << "Successfully linked using msvc! \n";Color::end();
+                    return true;
+                };
 
-        system(("clang++" + dependencies + " " + m_object_filename + " -o " + out_name).c_str());
+            }else{
+                Color::start(GREEN);std::cout << "Successfully linked using gcc! \n";Color::end();
+                return true;
+            };
+        }else{
+            Color::start(GREEN);std::cout << "Successfully linked using clang! \n";Color::end();
+            return true;
+        };
     }
 
     //statements
