@@ -151,6 +151,7 @@ public:
         //add external cpp or .o files
         std::string dependencies = "";
         for(std::string external : externals){dependencies = dependencies + " " + external;}
+        std::cout << "\n linking files: " + dependencies + " " + m_object_filename << "\n";
         //check which compilers work for assembling and linking
         if(system(("clang++" + dependencies + " " + m_object_filename + " -o " + out_name).c_str())){
             Color::start(YELLOW);std::cout << "Error with clang, trying gcc \n";Color::end();
@@ -158,13 +159,14 @@ public:
                 Color::start(YELLOW);std::cout << "Error with gcc, trying msvc \n"; Color::end();
                 if(vcvarsall_location == ""){
                     Color::start(RED);std::cout << "\n \n Please define vcvarsall.bat folder location for msvc using -m!!!! \n";Color::end();
+                    std::cout << "Alternatively run this in your visual studio dev prompt: " << "cl" + dependencies + " " + m_object_filename + " /Fe: " + out_name << "\n";
                     return false;
                 }
                 std::filesystem::path current = std::filesystem::current_path();
                 std::cout << "going to: " << vcvarsall_location << "\n";
                 std::cout << "Running " << "vcvarsall.bat x64" << "\n";
                 std::cout << "going to: " << current << "\n";
-                std::cout << "Running " << "cl" + dependencies + " " + m_object_filename + " -o " + out_name << "\n";
+                std::cout << "Running " << "cl" + dependencies + " " + m_object_filename + " /Fe: " + out_name << "\n";
                 if(system(("cd " + vcvarsall_location + " && vcvarsall.bat x64 && cd " + current.string() + " && cl" + dependencies + " " + m_object_filename + " /Fe: " + out_name).c_str())) {
                     Color::start(RED);std::cout << "Error with msvc.\n";Color::end();
                     return false;
