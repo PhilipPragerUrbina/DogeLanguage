@@ -165,7 +165,7 @@ public:
                 std::cout << "Running " << "vcvarsall.bat x64" << "\n";
                 std::cout << "going to: " << current << "\n";
                 std::cout << "Running " << "cl" + dependencies + " " + m_object_filename + " -o " + out_name << "\n";
-                if(system(("cd " + vcvarsall_location + " && vcvarsall.bat x64 && cd " + current.string() + " && cl" + dependencies + " " + m_object_filename + " -o " + out_name).c_str())) {
+                if(system(("cd " + vcvarsall_location + " && vcvarsall.bat x64 && cd " + current.string() + " && cl" + dependencies + " " + m_object_filename + " /Fe: " + out_name).c_str())) {
                     Color::start(RED);std::cout << "Error with msvc.\n";Color::end();
                     return false;
                 }else{

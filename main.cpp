@@ -1,5 +1,5 @@
 //define language version
-#define DOGE_LANGUAGE_VERSION "v0.76"
+#define DOGE_LANGUAGE_VERSION "v0.77"
 #include "popl.hpp"
 #include <iostream>
 
@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
     auto help_option = command_line.add<popl::Switch>("h", "help", "Print help message");
     auto source_filename_option = command_line.add<popl::Value<std::string>>("s", "source", "Set source filename. Can be .doge or .dogel","main.doge");
     auto output_filename_option = command_line.add<popl::Value<std::string>>("o", "output", "Set output filename. Can be .o, .exe, .s, or .ll","output.exe");
-    auto vcvarsall_option = command_line.add<popl::Value<std::string>>("m", "vcvarsall", "Set the folder where the visual studio vcvarsall.bat is located for msvc","");
+    auto vcvarsall_option = command_line.add<popl::Value<std::string>>("m", "vcvarsall", "Set the folder where the visual studio vcvarsall.bat is located for msvc. Probably needs to be in quotations","");
     auto print_llvm_option = command_line.add<popl::Switch>("p", "print", "Print llvm ir");
     auto error_option = command_line.add<popl::Switch>("e", "error", "Only error check");
     auto optimize_disable_option = command_line.add<popl::Switch>("u", "unoptimized", "Disable optimizations");
