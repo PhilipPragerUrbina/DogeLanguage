@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
     //set up files that need to be generated
     if (build_path.extension() == ".exe") {
         executable_filename = output_filename;
-        object_filename = build_path.stem().string() + ".o";
+        object_filename = build_path.parent_path().string()+ "/"+build_path.stem().string() + ".o";
     } else if (build_path.extension() == ".s" || build_path.extension() == ".o") {
         object_filename = output_filename;
     } else if (build_path.extension() == ".ll") {
