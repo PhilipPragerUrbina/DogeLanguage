@@ -25,6 +25,7 @@ int main(int argc, char **argv) {
     auto print_llvm_option = command_line.add<popl::Switch>("p", "print", "Print llvm ir");
     auto error_option = command_line.add<popl::Switch>("e", "error", "Only error check");
     auto optimize_disable_option = command_line.add<popl::Switch>("u", "unoptimized", "Disable optimizations");
+    auto run_disable_option = command_line.add<popl::Switch>("r", "disrun", "Dont run executable on build. For if you use another build tool or IDE that will run it for you already");
     //parse
     command_line.parse(argc, argv);
     //show help
@@ -147,7 +148,7 @@ int main(int argc, char **argv) {
                 Color::start(GREEN);
                 std::cout << "\nNo changes detected.\n";
                 Color::end();
-                if(executable_filename != ""){
+                if(executable_filename != "" && !run_disable_option->is_set()){
                     std::cout << "\nRunning build...\n";
                     system(executable_filename.c_str());
                 }
@@ -194,7 +195,7 @@ int main(int argc, char **argv) {
     //assemble
     if(executable_filename != ""){
         std::cout << "\nAssembling... \n";
-        if(compiler.assemble(executable_filename, vcvarsall_location)){
+        if(compiler.assemble(executable_filename, vcvarsall_location) && !run_disable_option->is_set()){
             //run file
             std::cout << "\nRunning... \n";
             system(executable_filename.c_str());
