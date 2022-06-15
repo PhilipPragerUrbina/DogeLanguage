@@ -118,9 +118,11 @@ public:
 class Scanner {
 public:
     //take text input
-    Scanner(std::vector<std::string> lines, ErrorHandler* error_handler){
+    Scanner(std::vector<std::string> lines, ErrorHandler* error_handler, std::string file){
         m_lines = lines;
         m_error_handler = error_handler;
+        m_error_handler->m_file = file;
+        m_error_handler->m_name = "Scanner";
 
         //set keywords
         m_keywords[ "and" ] = AND;

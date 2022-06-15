@@ -37,23 +37,28 @@
 //compile AST to llvm intermediate representation
 class IRCompiler : public Visitor {
 public:
-
+    //keep track of file names for errors
+    std::vector<std::string> m_names;
     //run the interpreter
-    void compile(statementList statements, std::map<std::string,statementList> external_files, ErrorHandler *error_handler) {
+    void compile(statementList statements, std::map<std::string,statementList> external_files, ErrorHandler *error_handler, std::string file) {
         //setup error handler
         m_error_handler = error_handler;
         m_error_handler->m_name = "IR Compiler";
+        m_error_handler->m_file = file;
         m_visitor_name = "IR compiler";
         m_external_files = external_files;
+
 
         //create top level env
         m_environment = new Environment();
         m_top = m_environment;
 
+        m_names.push_back(file);
         //run each statement
         for (Statement *statement: statements) {
             object out = statement->accept(this);
         }
+        m_names.pop_back();
     }
 
     //run optimizations on llvm ir
@@ -190,10 +195,14 @@ public:
     //import code from other files
     object visitImportStatement(ImportStatement *statement) {
         statementList statements = m_external_files[statement->m_name.original];
+        m_names.push_back(statement->m_name.original);
+        m_error_handler->m_file = m_names.back();
         //run each statement
         for (Statement *new_statement: statements) {
             new_statement->accept(this);
         }
+        m_names.pop_back();
+        m_error_handler->m_file = m_names.back();
         return null_object();
     }
     object visitIncludeStatement(IncludeStatement *statement) {
@@ -204,9 +213,13 @@ public:
         }
         statementList statements = m_external_files[std::get<std::string>(statement->m_name.value)];
         //run each statement
+        m_names.push_back(statement->m_name.original);
+        m_error_handler->m_file = m_names.back();
         for (Statement *new_statement: statements) {
             new_statement->accept(this);
         }
+        m_names.pop_back();
+        m_error_handler->m_file = m_names.back();
         return null_object();
     }
 

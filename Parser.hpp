@@ -14,10 +14,10 @@ class Parser {
 public:
     std::string link_directory = "";
     //create parser from tokens
-    Parser(  std::vector<Token> tokens, ErrorHandler* error_handler){
+    Parser(  std::vector<Token> tokens, ErrorHandler* error_handler, std::string file){
         m_error_handler = error_handler;
         m_error_handler->m_name = "Parsing";
-
+        m_error_handler->m_file = file;
         m_tokens = tokens;
     }
     //parse the tokens and return the parent node of the AST

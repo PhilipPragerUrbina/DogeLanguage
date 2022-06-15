@@ -8,22 +8,25 @@
 
 class Analyzer : public Visitor{
 public:
+    //keep track of file names for errors
+    std::vector<std::string> m_names;
     std::map<std::string,statementList> m_external_files;
     //run the Analyzer. return true if ok.
-    bool check(statementList statements, std::map<std::string,statementList> external_files,ErrorHandler* error_handler) {
+    bool check(statementList statements, std::map<std::string,statementList> external_files,ErrorHandler* error_handler, std::string file) {
         //setup error handler
         m_error_handler = error_handler;
         m_error_handler->m_name = "Analyzer";
         m_external_files = external_files;
+        m_error_handler->m_file = file;
         //set up main env
         m_environment = new Environment();
         m_top = m_environment;
-
+        m_names.push_back(file);
         //run each statement
         for(Statement* statement:statements){
             statement->accept(this);
         }
-
+        m_names.pop_back();
         return m_error_handler->hasErrors();
     }
 
@@ -34,9 +37,13 @@ public:
             return std::string("null");
         }
         statementList statements = m_external_files[statement->m_name.original];
+        m_names.push_back(statement->m_name.original);
+        m_error_handler->m_file = m_names.back();
         for (Statement *new_statement: statements) {
             new_statement->accept(this);
         }
+        m_names.pop_back();
+        m_error_handler->m_file = m_names.back();
         return std::string("null");
     }
 
@@ -54,9 +61,13 @@ public:
             return std::string("null");
         }
         statementList statements = m_external_files[std::get<std::string>(statement->m_name.value)];
+        m_names.push_back(statement->m_name.original);
+        m_error_handler->m_file = m_names.back();
         for (Statement *new_statement: statements) {
             new_statement->accept(this);
         }
+        m_names.pop_back();
+        m_error_handler->m_file = m_names.back();
         return std::string("null");
     }
 

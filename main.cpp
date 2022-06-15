@@ -1,5 +1,8 @@
 //define language version
 #define DOGE_LANGUAGE_VERSION "v0.77"
+
+
+
 #include "popl.hpp"
 #include <iostream>
 
@@ -11,7 +14,8 @@
 #include "File.hpp"
 #include <windows.h>
 #include <filesystem>
-
+bool getIncludes(Parser &parser, std::filesystem::file_time_type &source_modify_time, ErrorHandler &error_handler,
+                 std::map<std::string, statementList> &external_files);
 
 int main(int argc, char **argv) {
 
@@ -42,7 +46,9 @@ int main(int argc, char **argv) {
     //set up files that need to be generated
     if (build_path.extension() == ".exe") {
         executable_filename = output_filename;
-        object_filename = build_path.parent_path().string()+ "/"+build_path.stem().string() + ".o";
+       auto  object_path = build_path;
+        object_path.replace_extension(".o");
+        object_filename =object_path.string();
     } else if (build_path.extension() == ".s" || build_path.extension() == ".o") {
         object_filename = output_filename;
     } else if (build_path.extension() == ".ll") {
@@ -82,65 +88,24 @@ int main(int argc, char **argv) {
     //file did not open
     if (!main_file.read()) { return 1; }
     //scan file
-    Scanner scanner(main_file.getData(), &error_handler);
+    Scanner scanner(main_file.getData(), &error_handler,source_filename);
     scanner.scan();
     //check for errors
     if (error_handler.hasErrors()) { return 1; }
     //get tokens
     std::vector<Token> tokens = scanner.getTokens();
     //parse code
-    Parser parser(tokens, &error_handler);
+    Parser parser(tokens, &error_handler,source_filename);
     statementList statements = parser.parse();
     if (error_handler.hasErrors()) { return 1; }
     std::cout << "\nFinding... \n";
     std::map<std::string, statementList> external_files;
-    //get included files
-    for (std::string include: parser.m_includes) {
-        std::cout << "\nParsing: " + include +" \n";
-        File file(include);
-        if (!file.read()) { return 1; }
-        //check for changes
-        auto include_modify_time = last_write_time(std::filesystem::path(include));
-        if (source_modify_time < include_modify_time) {
-            source_modify_time = include_modify_time;
-        }
-        Scanner include_scanner(file.getData(), &error_handler);
-        include_scanner.scan();
-        Parser include_parser(include_scanner.getTokens(), &error_handler);
-        external_files[include] = include_parser.parse();
-        if (error_handler.hasErrors()) { return 1; }
-    }
-    for (std::string import: parser.m_imports) {
-        std::cout << "\nParsing: " + import  +".dogel \n";
-        File* file = new File(import + ".dogel");
-        std::string link_directory = "";
-        if (!file->read()) {
-            delete file;
-            //check in exe directory
-            File* new_file = new File(getExeDirectory(import+".dogel"));
-            if(!new_file->read()){
-                return 1;
-            }
-            link_directory = getExeDirectory("");
-            file = new_file;
-        }
-        //check for changes
-        //check for changes
-        auto include_modify_time = last_write_time(std::filesystem::path(  file->getName()));
-        if (source_modify_time < include_modify_time) {
-            source_modify_time = include_modify_time;
-        }
-        Scanner include_scanner(file->getData(), &error_handler);
-        include_scanner.scan();
-        Parser include_parser(include_scanner.getTokens(), &error_handler);
-        include_parser.link_directory = link_directory;
-        external_files[import] = include_parser.parse();
-        if (error_handler.hasErrors()) { return 1; }
-        delete file;
-    }
+    if(!getIncludes(parser, source_modify_time, error_handler, external_files)){
+        return 1;
+    };
 
 
-        //check if source was modified
+    //check if source was modified
         if (exists(build_path)) {
             auto build_modify_time = last_write_time(build_path);
             if (source_modify_time < build_modify_time) {
@@ -159,7 +124,7 @@ int main(int argc, char **argv) {
     //error check
     std::cout << "\nChecking... \n";
     Analyzer analyzer;
-    if (analyzer.check(statements, external_files, &error_handler)) {return 1;}
+    if (analyzer.check(statements, external_files, &error_handler,source_filename)) {return 1;}
     //check if set to fully compile
     if(error_option->is_set()){
         Color::start(GREEN);
@@ -170,7 +135,7 @@ int main(int argc, char **argv) {
     //compile
     std::cout << "\nCompiling... \n";
     IRCompiler compiler;
-    compiler.compile(statements, external_files, &error_handler);
+    compiler.compile(statements, external_files, &error_handler,source_filename);
     //check for errors
     if (error_handler.hasErrors()) {return 1;}
     //optimize ir
@@ -205,6 +170,60 @@ int main(int argc, char **argv) {
     std::cout << "\nFinished.\n";
     Color::end();
     return 0;
+}
+
+bool getIncludes(Parser &parser, std::filesystem::file_time_type &source_modify_time, ErrorHandler &error_handler,
+                 std::map<std::string, statementList> &external_files) {//get included files
+    for (std::string include: parser.m_includes) {
+        std::cout << "\nParsing: " + include +" \n";
+        File file(include);
+        if (!file.read()) {  return false;  }
+        //check for changes
+        auto include_modify_time = last_write_time(std::filesystem::path(include));
+        if (source_modify_time < include_modify_time) {
+            source_modify_time = include_modify_time;
+        }
+        Scanner include_scanner(file.getData(), &error_handler,include);
+        include_scanner.scan();
+        Parser include_parser(include_scanner.getTokens(), &error_handler,include);
+        external_files[include] = include_parser.parse();
+        if (error_handler.hasErrors()) {  return false; }
+       if(!getIncludes(include_parser,source_modify_time,error_handler,external_files)){
+           return false;
+       }
+    }
+    for (std::string import: parser.m_imports) {
+        std::cout << "\nParsing: " + import  +".dogel \n";
+        File* file = new File(import + ".dogel");
+        std::string link_directory = "";
+        if (!file->read()) {
+            delete file;
+            //check in exe directory
+            File* new_file = new File(getExeDirectory(import+".dogel"));
+            if(!new_file->read()){
+                return false;
+            }
+            link_directory = getExeDirectory("");
+            file = new_file;
+        }
+        //check for changes
+        //check for changes
+        auto include_modify_time = last_write_time(std::filesystem::path(  file->getName()));
+        if (source_modify_time < include_modify_time) {
+            source_modify_time = include_modify_time;
+        }
+        Scanner include_scanner(file->getData(), &error_handler,import);
+        include_scanner.scan();
+        Parser include_parser(include_scanner.getTokens(), &error_handler,import);
+        include_parser.link_directory = link_directory;
+        external_files[import] = include_parser.parse();
+        if (error_handler.hasErrors()) {   return false; }
+        delete file;
+        if(!getIncludes(include_parser,source_modify_time,error_handler,external_files)){
+            return false;
+        }
+    }
+    return true;
 }
 /*
 //generate graph vis  file of code
