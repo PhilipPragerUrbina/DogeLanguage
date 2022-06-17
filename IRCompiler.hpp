@@ -40,7 +40,7 @@ public:
     //keep track of file names for errors
     std::vector<std::string> m_names;
     //run the interpreter
-    void compile(statementList statements, std::map<std::string,statementList> external_files, ErrorHandler *error_handler, std::string file) {
+    void compile(const statementList& statements, std::map<std::string,statementList> external_files, ErrorHandler *error_handler, const std::string& file) {
         //setup error handler
         m_error_handler = error_handler;
         m_error_handler->m_name = "IR Compiler";
@@ -56,7 +56,7 @@ public:
         m_names.push_back(file);
         //run each statement
         for (Statement *statement: statements) {
-            object out = statement->accept(this);
+            statement->accept(this);
         }
         m_names.pop_back();
     }
@@ -77,7 +77,7 @@ public:
         m_module.print(llvm::outs(), nullptr);
     }
 
-    void printFile(std::string filename) {
+    void printFile(const std::string& filename) {
         //create output file
         std::error_code stream_error;
         llvm::raw_fd_ostream dest(filename, stream_error, llvm::sys::fs::OF_None);
@@ -92,7 +92,7 @@ public:
     }
 
     //Create object file
-    void build(std::string out_name) {
+    void build(const std::string& out_name) {
         //initialize
         llvm::InitializeAllTargetInfos();
         llvm::InitializeAllTargets();
@@ -151,10 +151,10 @@ public:
         dest.close();
     }
 
-    bool assemble(std::string out_name,std::string vcvarsall_location) {
+    bool assemble(const std::string& out_name,std::string vcvarsall_location) {
         //assemble file to executable using clang
         //add external cpp or .o files
-        std::string dependencies = "";
+        std::string dependencies;
         for(std::string external : externals){dependencies = dependencies + " " + external;}
         std::cout << "\n linking files: " + dependencies + " " + m_object_filename << "\n";
         //check which compilers work for assembling and linking
@@ -162,7 +162,7 @@ public:
             Color::start(YELLOW);std::cout << "Error with clang, trying gcc \n";Color::end();
             if(system(("g++" + dependencies + " " + m_object_filename + " -o " + out_name).c_str())) {
                 Color::start(YELLOW);std::cout << "Error with gcc, trying msvc \n"; Color::end();
-                if(vcvarsall_location == ""){
+                if(vcvarsall_location.empty()){
                     Color::start(RED);std::cout << "\n \n Please define vcvarsall.bat folder location for msvc using -m!!!! \n";Color::end();
                     std::cout << "Alternatively run this in your visual studio dev prompt: " << "cl" + dependencies + " " + m_object_filename + " /Fe: " + out_name << "\n";
                     return false;
@@ -178,16 +178,16 @@ public:
                 }else{
                     Color::start(GREEN);std::cout << "Successfully linked using msvc! \n";Color::end();
                     return true;
-                };
+                }
 
             }else{
                 Color::start(GREEN);std::cout << "Successfully linked using gcc! \n";Color::end();
                 return true;
-            };
+            }
         }else{
             Color::start(GREEN);std::cout << "Successfully linked using clang! \n";Color::end();
             return true;
-        };
+        }
     }
 
     //statements
@@ -235,7 +235,7 @@ public:
         for (Statement *member: statement->m_members) {
             //if member is variable
             VariableStatement *member_var = dynamic_cast<VariableStatement *>(member);
-            if (member_var != 0) {
+            if (member_var != nullptr) {
                 //add type
                 types.push_back(getType(member_var->m_type));
                 //define variable
@@ -263,7 +263,7 @@ public:
 
         //add member functions
         for (Statement *member: statement->m_members) {
-            if (dynamic_cast<VariableStatement *>(member) == 0) {
+            if (dynamic_cast<VariableStatement *>(member) == nullptr) {
                 //is a function
                 member->accept(this);
             }
@@ -280,7 +280,7 @@ public:
         m_builder.CreateBr(loop_block);
         m_builder.SetInsertPoint(loop_block);
         //make body
-        object out = statement->m_body->accept(this);
+        statement->m_body->accept(this);
         //get condition
         llvm::Value *condition = std::get<llvm::Value *>(eval(statement->m_condition));
         //merge
@@ -307,7 +307,6 @@ public:
         statement->m_then_branch->accept(this);
         //create else insert point
         m_builder.CreateBr(merge_block);
-        then_block = m_builder.GetInsertBlock();
         parent->getBasicBlockList().push_back(else_block);
         m_builder.SetInsertPoint(else_block);
         //make else body
@@ -316,7 +315,6 @@ public:
         }
         //create merge
         m_builder.CreateBr(merge_block);
-        else_block = m_builder.GetInsertBlock();
         parent->getBasicBlockList().push_back(merge_block);
         m_builder.SetInsertPoint(merge_block);
 
@@ -430,7 +428,7 @@ public:
         llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
         //check if class
         object class_type = m_environment->getValue(statement->m_type.original + "_class");
-        if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+        if (std::get_if<llvm::Type *>(&class_type)) {
                 //define type
                 m_environment->define(statement->m_name.original + "_type", statement->m_type.original + "_class");
         }
@@ -478,7 +476,7 @@ public:
         object class_type = m_environment->getValue(class_name);
             if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
                 //get member pointer
-                llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, class_object_pointer, indices,expression->m_name.original.c_str());
+                llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, class_object_pointer, indices,expression->m_name.original);
                 //set variables for next get expression
                 m_last_pointer = (llvm::AllocaInst *) member_ptr;
                 m_last_variable_name = class_name + "_" + expression->m_name.original;
@@ -510,7 +508,7 @@ public:
             if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
                 //get member pointer
                 llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, class_object_pointer, indices,
-                                                              expression->m_name.original.c_str());
+                                                              expression->m_name.original);
                 //set variables for next get expression
                 m_last_pointer = (llvm::AllocaInst *) member_ptr;
                 m_last_variable_name = class_name + "_" + expression->m_name.original;
@@ -521,7 +519,7 @@ public:
                     value = toFloat(value);
                 }
                 //store value
-                m_builder.CreateStore(value, member_ptr);;
+                m_builder.CreateStore(value, member_ptr);
             }
         }
         return null_object();
@@ -607,7 +605,7 @@ public:
                 //get class type
                 object class_type =  m_environment->getValue(class_name);
                 if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
-                        llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, this_pointer, indices,expression->m_name.original.c_str());
+                        llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, this_pointer, indices,expression->m_name.original);
                         //set variables
                         m_last_pointer = (llvm::AllocaInst *) member_ptr;
                         m_last_variable_name = class_name + "_" + expression->m_name.original;
@@ -866,7 +864,7 @@ private:
     //create alloca at entry block. This is for easier analysis and optimization of code by llvm.
     llvm::AllocaInst *blockAllocation(llvm::Function *function, const std::string &variable_name, llvm::Type *type) {
         llvm::IRBuilder<> block(&function->getEntryBlock(),function->getEntryBlock().begin());
-        return block.CreateAlloca(type, 0,variable_name.c_str());
+        return block.CreateAlloca(type, 0,variable_name);
     }
     //get indices array for accessing class members
     std::vector<llvm::Value *> getIndices(const int index) {
@@ -904,7 +902,7 @@ private:
         return llvm::Type::getFloatTy(m_context);
     }
     //get name from type
-    std::string getTypeName(llvm::Type* type) {
+    static std::string getTypeName(llvm::Type* type) {
         //primitives
         if(type->isFloatTy()){
             return "float";
