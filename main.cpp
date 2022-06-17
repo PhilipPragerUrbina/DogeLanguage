@@ -1,5 +1,5 @@
 //define language version
-#define DOGE_LANGUAGE_VERSION "v0.77"
+#define DOGE_LANGUAGE_VERSION "v0.78"
 
 
 
@@ -20,7 +20,7 @@ bool getIncludes(Parser &parser, std::filesystem::file_time_type &source_modify_
 int main(int argc, char **argv) {
 
     //create command line interface
-    popl::OptionParser command_line("Doge compiler");
+    popl::OptionParser command_line((std::string("Doge compiler ") + DOGE_LANGUAGE_VERSION));
     //set options
     auto help_option = command_line.add<popl::Switch>("h", "help", "Print help message");
     auto source_filename_option = command_line.add<popl::Value<std::string>>("s", "source", "Set source filename. Can be .doge or .dogel","main.doge");
