@@ -1,5 +1,5 @@
 #import SL;
-
+#include "pi.doge";
 float pi(float n) {
     float sum = 0.0;
     float sign = 1.0;
@@ -9,9 +9,24 @@ float pi(float n) {
     }
     return 4.0*sum;
 }
+class point{
+int x = 100;
+
+int y = 200;
+
+void point(int in_y){
+this.y = in_y;
+}
+
+}
+
 
 //main function
 int main(){
+point p = point(400);
+print(p.x);
+print(p.y);
+
 
 string s = string("Enter precision");
 s = s + ": ";
@@ -20,6 +35,8 @@ print(s);
 float in = floatIn();
 print("\n");
 print(pi(in));
+print("\n");
+print(getPi());
 return 0;
 
 }

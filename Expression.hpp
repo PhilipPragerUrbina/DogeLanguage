@@ -203,25 +203,7 @@ public:
     Variable* m_variable;
 };
 
-class Assign : public Expression {
-public:
-    Assign(Expression* value, Token name,int line, bool pointer) {
-        m_name = name;
-        m_value = value;
-        m_pointer = pointer;
-        m_line = line;
 
-    }
-
-    object accept(Visitor* visitor) {
-        return visitor->visitAssignExpression(this);
-    }
-    bool m_pointer;
-
-    Token m_name;
-    Expression* m_value;
-
-};
 class Set : public Expression {
 public:
     Set(Expression* value, Token name, Expression* obj, int line) {
@@ -401,6 +383,32 @@ public:
     Expression* m_condition;
     Statement* m_body;
 };
+//THis expression is down here because it requires as statement for a special constructor
+class Assign : public Expression {
+public:
+    Assign(Expression* value, Token name,int line, bool pointer) {
+        m_name = name;
+        m_value = value;
+        m_pointer = pointer;
+        m_line = line;
 
+    }
+    //create assign from variable statement for members
+    Assign(VariableStatement* statement){
+        m_name = statement->m_name;
+        m_value = statement->m_initializer;
+        m_line = statement->m_line;
+        m_pointer = false;
+    }
+
+    object accept(Visitor* visitor) {
+        return visitor->visitAssignExpression(this);
+    }
+    bool m_pointer;
+
+    Token m_name;
+    Expression* m_value;
+
+};
 
 #endif PROGRAM_EXPRESSION_HPP

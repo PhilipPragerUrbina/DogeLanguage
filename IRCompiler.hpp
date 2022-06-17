@@ -226,8 +226,11 @@ public:
     object visitClassStatement(ClassStatement *statement) {
         //create new type
         llvm::StructType *new_class = llvm::StructType::create(m_context, statement->m_name.original);
+
+
         //member variable types
         std::vector<llvm::Type *> types;
+        std::vector<Statement *> inits;
         int id = 0;
         for (Statement *member: statement->m_members) {
             //if member is variable
@@ -242,12 +245,22 @@ public:
                 if (!std::get_if<null_object>(&class_type)) {
                     m_environment->define(statement->m_name.original + "_class_" + member_var->m_name.original + "_type",member_var->m_type.original + "_class");
                 }
+                //check for member initialization
+                if(member_var->m_initializer != nullptr){
+                    inits.push_back(new ExpressionStatement(new Assign(member_var),statement->m_line));
+                }
                 id++; //increment
             }
         }
         //set body and define class
         new_class->setBody(types);
         m_environment->define(statement->m_name.original + "_class", (llvm::Type *) new_class);
+      //create default constructor for initializing members
+      if(!inits.empty()){
+          FunctionStatement constructor(Token("default"),{},inits,Token("void"),statement->m_line,statement->m_name.original);
+          constructor.accept(this);
+      }
+
         //add member functions
         for (Statement *member: statement->m_members) {
             if (dynamic_cast<VariableStatement *>(member) == 0) {
@@ -347,7 +360,6 @@ public:
         //add class as this parameter pointer
         if (is_class_member) {
             llvm::Type *class_type = std::get<llvm::Type *>(m_environment->getValue(statement->m_class_name + "_class"));
-            m_environment->define("this_type", statement->m_class_name + "_class");
             types.push_back(llvm::PointerType::get(class_type, 0));
         }
 
@@ -371,6 +383,10 @@ public:
         //set up scope
         Environment *environment;
         environment = new Environment(m_top);
+
+        if (is_class_member) {
+            environment->define("this_type", statement->m_class_name + "_class");
+        }
         //add arguments
         for (auto &Arg: function->args()) {
             llvm::AllocaInst *Alloca = blockAllocation(function, std::string(Arg.getName()), Arg.getType());
@@ -521,8 +537,14 @@ public:
             llvm::Type* class_type = *class_type_temp;
             llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
             llvm::AllocaInst *alloca_inst = blockAllocation(parent, "temp_class",class_type);
-            //get and run constructor if available
+            //run member init
+            llvm::Function *init = m_module.getFunction(class_type->getStructName().str() + "_class_"+ "default");
+            //might not exist if empty. This is to avoid linking error if empty default constructor is optimized away
+            if(init){
+                m_builder.CreateCall(init, {alloca_inst});
+            }
 
+            //get and run constructor if available
             llvm::Function *constructor = m_module.getFunction(class_type->getStructName().str() + "_class_" + class_type->getStructName().str() + overload);
             if (constructor) {
                 arguments.push_back(alloca_inst);
@@ -606,11 +628,13 @@ public:
 
         }else{
             m_last_variable_name = expression->m_name.original;
+            m_last_pointer = nullptr;
             //check if class type for calling constructors
             object class_type =  m_environment->getValue(expression->m_name.original + "_class");
             if(!std::get_if<null_object>(&class_type)){
                 return class_type;
             }
+
             //else just return variable, probably a function
             return desired_variable;
         }
@@ -620,6 +644,7 @@ public:
         llvm::Value *value = std::get<llvm::Value *>(eval(expression->m_value));
         Variable(expression->m_name,expression->m_line,false).accept(this);
         llvm::Value *variable = m_last_pointer;
+
         m_builder.CreateStore(value, variable);
         return null_object();
     }

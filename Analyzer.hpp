@@ -423,7 +423,6 @@ public:
                     return checkOperator(left,right, "plus");
                 }
         }
-        //TODO fix this unreachable error
         m_error_handler->error(expression->m_line,"Not a binary type for: " + expression->m_operator_.original);
         return std::string("null");
     };

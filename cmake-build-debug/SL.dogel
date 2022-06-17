@@ -16,7 +16,6 @@ extern chars concat(chars a,chars b);
 extern float power(float base, float exp);
 
 //string class
-
 class string{
     //char data
     chars m_chars;

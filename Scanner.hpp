@@ -101,6 +101,12 @@ enum TokenType {
 
 struct Token{
 public:
+    Token(std::string str){
+        value = str;
+        original = str;
+        type = IDENTIFIER;
+    }
+    Token(){}
     //object value
     object value;
     //original text
