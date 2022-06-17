@@ -8,7 +8,6 @@ extern void printChars(chars a);
 //conversions
 extern chars toChars(float a);
 extern chars toChars(int a);
-extern float toFloat(int a);
 extern float toFloat(chars a);
 extern int toInt(float a);
 //utilities

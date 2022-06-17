@@ -31,9 +31,6 @@ extern "C" DLLEXPORT const char* toChars_int(int a) {
     std::string* out =   new std::string(std::to_string(a));
     return out->data();
 }
-extern "C" DLLEXPORT float toFloat_int(int a) {
-    return (float)a;
-}
 extern "C" DLLEXPORT float toFloat_chars(const char* a) {
     std::string in = std::string (a);
     return std::stof(in);
