@@ -13,7 +13,7 @@ class point{
 int x = 100;
 
 int y = 200;
-
+float f = 22;
 void point(int in_y){
 this.y = in_y;
 }
@@ -23,9 +23,14 @@ this.y = in_y;
 
 //main function
 int main(){
-point p = point(400);
-print(p.x);
-print(p.y);
+
+point p;
+p.f = 11;
+
+float a= 22;
+a = 34;
+a = a + 5;
+print(a);
 
 
 string s = string("Enter precision");

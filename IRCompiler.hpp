@@ -439,6 +439,10 @@ public:
         //initialize
         if (statement->m_initializer != nullptr) {
             llvm::Value *value = std::get<llvm::Value *>(eval(statement->m_initializer));
+            //implicit conversion
+            if(Alloca->getAllocatedType()->isFloatTy()){
+                value = toFloat(value);
+            }
             m_builder.CreateStore(value, Alloca);
         }
         return null_object();
@@ -511,6 +515,11 @@ public:
                 m_last_pointer = (llvm::AllocaInst *) member_ptr;
                 m_last_variable_name = class_name + "_" + expression->m_name.original;
                 m_last_class = class_object_pointer;
+
+                //implicit conversion
+                if(((llvm::StructType *) *class_def)->getElementType(index)->isFloatTy()){
+                    value = toFloat(value);
+                }
                 //store value
                 m_builder.CreateStore(value, member_ptr);;
             }
@@ -642,9 +651,12 @@ public:
 
     object visitAssignExpression(Assign *expression) {
         llvm::Value *value = std::get<llvm::Value *>(eval(expression->m_value));
-        Variable(expression->m_name,expression->m_line,false).accept(this);
+        llvm::Value* in = std::get<llvm::Value*>(Variable(expression->m_name,expression->m_line,false).accept(this));
         llvm::Value *variable = m_last_pointer;
-
+        //implicit conversion
+        if(in->getType()->isFloatTy()){
+            value = toFloat(value);
+        }
         m_builder.CreateStore(value, variable);
         return null_object();
     }
@@ -665,8 +677,8 @@ public:
         llvm::Value *left = std::get<llvm::Value *>(eval(expression->m_left));
         switch (expression->m_operator_.type) {
             case BANG_EQUAL:
-                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpUNE(left, right, "not_equal_floats");
+                if (left->getType()->isFloatTy()) {
+                    return m_builder.CreateFCmpUNE(left, toFloat(right), "not_equal_floats");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_bangEqual_" +getTypeName(right->getType()));
                     if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "bangEqual_overload");}
@@ -674,8 +686,8 @@ public:
                     return m_builder.CreateICmpNE(left, right, "not_equal_ints");
                 }
             case EQUAL_EQUAL:
-                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpUEQ(left, right, "equal_floats");
+                if (left->getType()->isFloatTy()) {
+                    return m_builder.CreateFCmpUEQ(left, toFloat(right), "equal_floats");
                 } else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_equalEqual_" +getTypeName(right->getType()));
                     if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "equalEqual_overload");}
@@ -683,8 +695,8 @@ public:
                     return m_builder.CreateICmpEQ(left, right, "equal_ints");
                 }
             case GREATER:
-                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpUGT(left, right, "greater_floats");
+                if (left->getType()->isFloatTy()) {
+                    return m_builder.CreateFCmpUGT(left, toFloat(right), "greater_floats");
                 } else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_greater_" +getTypeName(right->getType()));
                     if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "greater_overload");}
@@ -692,8 +704,8 @@ public:
                     return m_builder.CreateICmpUGT(left, right, "greater_ints");
                 }
             case GREATER_EQUAL:
-                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpUGE(left, right, "greater_equal_floats");
+                if (left->getType()->isFloatTy()) {
+                    return m_builder.CreateFCmpUGE(left, toFloat(right), "greater_equal_floats");
                 } else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_greaterEqual_" +getTypeName(right->getType()));
                     if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "greaterEqual_overload");}
@@ -701,8 +713,8 @@ public:
                     return m_builder.CreateICmpUGE(left, right, "greater_equal_ints");
                 }
             case LESS:
-                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpULT(left, right, "less_floats");
+                if (left->getType()->isFloatTy()) {
+                    return m_builder.CreateFCmpULT(left, toFloat(right), "less_floats");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_less_" +getTypeName(right->getType()));
                     if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "less_overload");}
@@ -710,8 +722,8 @@ public:
                     return m_builder.CreateICmpULT(left, right, "less_ints");
                 }
             case LESS_EQUAL:
-                if (left->getType()->isFloatTy() && right->getType()->isFloatTy()) {
-                    return m_builder.CreateFCmpULE(left, right, "less_equal_floats");
+                if (left->getType()->isFloatTy()) {
+                    return m_builder.CreateFCmpULE(left, toFloat(right), "less_equal_floats");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_lessEqual_" +getTypeName(right->getType()));
                     if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "lessEqual_overload");}
@@ -719,8 +731,8 @@ public:
                     return m_builder.CreateICmpULE(left, right, "less_equal_ints");
                 }
             case MINUS:
-                if (right->getType()->isFloatTy()) {
-                    return m_builder.CreateFSub(left, right, "subtract_float");
+                if (left->getType()->isFloatTy()) {
+                    return m_builder.CreateFSub(left, toFloat(right), "subtract_float");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_minus_" +getTypeName(right->getType()));
                     if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "minus_overload");}
@@ -728,8 +740,8 @@ public:
                     return m_builder.CreateSub(left, right, "subtract_int");
                 }
             case SLASH:
-                if (right->getType()->isFloatTy()) {
-                    return m_builder.CreateFDiv(left, right, "divide_float");
+                if (left->getType()->isFloatTy()) {
+                    return m_builder.CreateFDiv(left, toFloat(right), "divide_float");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_slash_" +getTypeName(right->getType()));
                     if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "slash_overload");}
@@ -737,8 +749,8 @@ public:
                     return m_builder.CreateUDiv(left, right, "divide_int");
                 }
             case STAR:
-                if (right->getType()->isFloatTy()) {
-                    return m_builder.CreateFMul(left, right, "multiply_float");
+                if (left->getType()->isFloatTy()) {
+                    return m_builder.CreateFMul(left, toFloat(right), "multiply_float");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_star_" +getTypeName(right->getType()));
                     if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "star_overload");}
@@ -746,16 +758,9 @@ public:
                     return m_builder.CreateMul(left, right, "multiply_int");
                 }
             case PLUS:
-                if (right->getType()->isFloatTy()) {
-                    return m_builder.CreateFAdd(left, right, "add_float");
-                } else if (right->getType() == llvm::Type::getInt8PtrTy(m_context) && left->getType() == llvm::Type::getInt8PtrTy(m_context)) {
-                    //temporarily using c++ implemented wrapper to combine strings until proper library and array support is added.
-                    llvm::Function *callee_function = m_module.getFunction("concat_string_string");
-                    if (!callee_function) {
-                        m_error_handler->error(expression->m_line,"Standard library concat is needed to combine strings!");
-                    }
-                    return (llvm::Value *) m_builder.CreateCall(callee_function, {left,right}, "add_string");
-                }  else  if (left->getType()->isIntegerTy() && right->getType()->isIntegerTy()) {
+                if (left->getType()->isFloatTy()) {
+                    return m_builder.CreateFAdd(left, toFloat(right), "add_float");
+                } else  if (left->getType()->isIntegerTy() && right->getType()->isIntegerTy()) {
                     return m_builder.CreateAdd(left, right, "add_int");
                 }else if(left->getType()->isStructTy()){
                     //check for overload
@@ -797,8 +802,9 @@ public:
     };
 
     object visitLiteralExpression(Literal *expression) {
-        if (int *number = std::get_if<int>(&expression->m_value)) { //create integer. All ints are 32 bit.
-            return llvm::ConstantInt::get(m_context, llvm::APInt(32, *number));
+
+        if (int *int_number = std::get_if<int>(&expression->m_value)) { //create integer. All ints are 32 bit.
+            return llvm::ConstantInt::get(m_context, llvm::APInt(32, *int_number));
         }
         else if (float *number = std::get_if<float>(&expression->m_value)) { //create float
             return llvm::ConstantFP::get(m_context, llvm::APFloat(*number));
@@ -915,5 +921,18 @@ private:
         }
         return "null";
     }
+
+    llvm::Value* toFloat(llvm::Value* not_float){
+        if(not_float->getType()->isFloatTy()){
+            //is already float
+            return not_float;
+        }
+        else if(not_float->getType()->isIntegerTy()){
+            return m_builder.CreateSIToFP(not_float, llvm::Type::getFloatTy(m_context), "float_cast");
+        }
+        m_error_handler->error("Unsupported conversion: " + not_float->getName().str());
+        return not_float;
+    }
+
 };
 #endif //PROGRAM_IRCOMPILER_HPP

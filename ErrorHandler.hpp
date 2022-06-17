@@ -27,7 +27,7 @@ public:
     }
     void error(std::string message = "unknown"){
         Color::start(RED);
-        std::cout <<  m_name << m_file+ " Error: " << message << "\n";
+        std::cout <<  m_name << " "<< m_file+ " Error: " << message << "\n";
         Color::end();
         m_error_number++;
     }
@@ -40,7 +40,7 @@ public:
     }
     void warning(std::string message){
         Color::start(YELLOW);
-        std::cout <<  m_name <<m_file+" Warning: " << message << "\n";
+        std::cout <<  m_name<< " " <<m_file+" Warning: " << message << "\n";
         Color::end();
         m_warning_number++;
     }

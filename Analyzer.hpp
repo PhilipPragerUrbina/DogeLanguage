@@ -166,7 +166,9 @@ public:
         if(statement->m_initializer != nullptr){
             std::string value = evalS(statement->m_initializer);
             if(value != type){
-                m_error_handler->error(statement->m_line,"Cannot assign " + value + " to " + type);
+                if(type != "float" && value != "int" ) {
+                    m_error_handler->error(statement->m_line, "Cannot assign " + value + " to " + type);
+                }
             }
         }
         if(m_environment->define(statement->m_name.original,type,statement->m_constant)){m_error_handler->error(statement->m_line, "Variable Already defined: " + statement->m_name.original);};
@@ -258,7 +260,9 @@ public:
         object get = m_environment->getValue(expression->m_name.original);
         if(std::get_if<std::string>(&get)){
         if(value != std::get<std::string>(get)){
-            m_error_handler->error(expression->m_line,"Cannot assign different type.");
+            if(std::get<std::string>(get) != "float" && value != "int" ) {
+                m_error_handler->error(expression->m_line, "Cannot assign different type.");
+            }
             return (std::string)"null";
         }
 
@@ -311,7 +315,9 @@ public:
                 m_error_handler->error(expression->m_line,"Cannot write unknown member.");
             };
             if(type != right){
-                m_error_handler->error(expression->m_line,"Cannot set different type.");
+                if(type != "float" && right != "int" ){
+                    m_error_handler->error(expression->m_line,"Cannot set different type.");
+                }
             }
             return (std::string)"null";
         }
@@ -480,6 +486,13 @@ private:
     }
     //overloading checkers
     std::string checkOperator(std::string left, std::string right, std::string op){
+        //check conversions
+        if(left == "float" && right == "int"){
+            return "float";
+        }
+        if(right == "float" && left == "int"){
+            m_error_handler->error("Casting a float to a int is narrowing!");
+        }
         std::string callee = op + "_function_" + right + "_" + left+"_";
         object callee_obj = m_environment->getValue(callee);
         if(Callable* function = std::get_if<Callable>(&callee_obj)){
