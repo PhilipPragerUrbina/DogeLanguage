@@ -1,9 +1,8 @@
 # DogeLanguage
 WIP Doge programming language. 
 
-Based on Lox.
+Parser is based on Lox.
 
-Current compiles to machine code.
-Also has partial interpreter support.
+Compiles to machine code.
 
 Requires llvm installed to build.
