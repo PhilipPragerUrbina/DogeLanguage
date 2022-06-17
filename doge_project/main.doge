@@ -32,7 +32,12 @@ a = 34;
 a = a + 5;
 print(a);
 
+if(a == getPi() ){
+    print(a);
+}else{
+print(a);
 
+}
 string s = string("Enter precision");
 s = s + ": ";
 print(s);

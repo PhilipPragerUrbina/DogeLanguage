@@ -348,6 +348,7 @@ public:
                     return (std::string)"bool";
                 }
                 if(left == "float" && right == "float"){
+                    m_error_handler->warning(expression->m_line,"Comparing two floats directly is unreliable.");
                     return (std::string)"float";
                 }
                 if(left == "int" && right == "int"){
