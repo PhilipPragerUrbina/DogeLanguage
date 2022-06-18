@@ -140,26 +140,29 @@ public:
         m_keywords[ "if" ] = IF;
         m_keywords[ "null_object" ] = NIL;
         m_keywords[ "or" ] = OR;
+        m_keywords[ "while" ] = WHILE;
+        m_keywords[ "include" ] = INCLUDE;
+        m_keywords[ "import" ] = IMPORT;
+        m_keywords[ "link" ] = LINK;
+        m_keywords[ "extern" ] = EXTERN;
         m_keywords[ "return" ] = RETURN;
         m_keywords[ "break" ] = BREAK;
         m_keywords[ "continue" ] = CONTINUE;
         m_keywords[ "super" ] = SUPER;
         m_keywords[ "const" ] = CONST;
         m_keywords[ "true" ] = TRUE;
-        m_keywords[ "var" ] = VAR;
-        //alternative vars
-        m_keywords[ "bool" ] = VAR;
-        m_keywords[ "ptr" ] = VAR;
-        m_keywords[ "pointer" ] = VAR;
+        //types
         m_keywords[ "void" ] = VAR;
+        m_keywords[ "bool" ] = VAR;
         m_keywords[ "int" ] = VAR;
         m_keywords[ "float" ] = VAR;
         m_keywords[ "chars" ] = VAR;
-        m_keywords[ "while" ] = WHILE;
-        m_keywords[ "include" ] = INCLUDE;
-        m_keywords[ "import" ] = IMPORT;
-        m_keywords[ "link" ] = LINK;
-        m_keywords[ "extern" ] = EXTERN;
+
+        m_keywords[ "bool_ptr" ] = VAR;
+        m_keywords[ "int_ptr" ] = VAR;
+        m_keywords[ "float_ptr" ] = VAR;
+        m_keywords[ "chars_ptr" ] = VAR;
+
     }
 
     //scan text to create tokens

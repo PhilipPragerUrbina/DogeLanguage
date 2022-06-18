@@ -268,12 +268,11 @@ private:
             Token equals = m_tokens[m_current-1];
             Expression* right = assignment();
             if (Variable* variable = dynamic_cast<Variable*>(left)){
-
-                return new Assign(right,variable->m_name, getLine(), false);
+                return new Assign(right,left, getLine(), variable->m_name.original);
             }
             else if (Pointer* ptr = dynamic_cast<Pointer*>(left)){
 
-                return new Assign(right,ptr->m_variable->m_name, getLine(), true);
+                return new Assign(right,left, getLine(), ptr->m_variable->m_name.original);
             }
             else if (Get* obj = dynamic_cast<Get*>(left)){
 
@@ -328,14 +327,14 @@ private:
          Token add; add.original = "+";add.type = PLUS;   add.line = getLine();
          if (Variable* variable = dynamic_cast<Variable*>(left)) {
              //enjoy a nightmare line
-             return new Assign(new Binary(left, add, new Literal(1, getLine()), getLine()), variable->m_name, getLine(), false);
+             return new Assign(new Binary(left, add, new Literal(1, getLine()), getLine()), variable, getLine(),variable->m_name.original);
          }
          m_error_handler->error(m_tokens[m_current-1].line, "Cannot increment non variable");
      }
      else if(match({DEC})){
          Token subtract;  subtract.original = "-";subtract.type = MINUS;  subtract.line = getLine();
          if (Variable* variable = dynamic_cast<Variable*>(left)) {
-             return new Assign(new Binary(left, subtract, new Literal(1, getLine()), getLine()), variable->m_name, getLine(), false);
+             return new Assign(new Binary(left, subtract, new Literal(1, getLine()), getLine()), variable, getLine(),variable->m_name.original);
          }
          m_error_handler->error(m_tokens[m_current-1].line, "Cannot decrement non variable");
      }

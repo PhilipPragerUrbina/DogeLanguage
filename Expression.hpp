@@ -386,27 +386,28 @@ public:
 //THis expression is down here because it requires as statement for a special constructor
 class Assign : public Expression {
 public:
-    Assign(Expression* value, Token name,int line, bool pointer) {
-        m_name = name;
+    Assign(Expression* value, Expression* variable,int line, std::string name) {
+        m_variable = variable;
         m_value = value;
-        m_pointer = pointer;
+m_name = name;
         m_line = line;
 
     }
     //create assign from variable statement for members
     Assign(VariableStatement* statement){
-        m_name = statement->m_name;
+        m_variable = new Variable(Token(statement->m_name),0,false);
+        m_name = statement->m_name.original;
         m_value = statement->m_initializer;
         m_line = statement->m_line;
-        m_pointer = false;
+
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitAssignExpression(this);
     }
-    bool m_pointer;
 
-    Token m_name;
+std::string m_name;
+   Expression* m_variable;
     Expression* m_value;
 
 };

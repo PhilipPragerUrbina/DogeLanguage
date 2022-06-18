@@ -649,7 +649,7 @@ public:
 
     object visitAssignExpression(Assign *expression) {
         llvm::Value *value = std::get<llvm::Value *>(eval(expression->m_value));
-        llvm::Value* in = std::get<llvm::Value*>(Variable(expression->m_name,expression->m_line,false).accept(this));
+        llvm::Value* in = std::get<llvm::Value*>(expression->m_variable->accept(this));
         llvm::Value *variable = m_last_pointer;
         //implicit conversion
         if(in->getType()->isFloatTy()){
@@ -669,6 +669,15 @@ public:
         }
     }
 
+    object visitPointerExpression(Pointer *expression) {
+        llvm::Value *variable = std::get<llvm::Value *>(eval(expression->m_variable));
+        if(variable->getType()->isPointerTy()){
+            m_last_pointer = (llvm::AllocaInst*)variable;
+            return (llvm::Value*)m_builder.CreateLoad((variable)->getType()->getContainedType(0),variable);
+        }else{
+            return (llvm::Value*)m_last_pointer;
+        }
+    }
     object visitBinaryExpression(Binary *expression) {
         //get values
         llvm::Value *right = std::get<llvm::Value *>(eval(expression->m_right));
@@ -879,14 +888,24 @@ private:
     //get type from token
     llvm::Type *getType(const Token type) {
         std::string type_name = type.original;
+        bool ptr = false;
+        if(type_name.find("_ptr") != std::string::npos) {
+                ptr = true;
+            type_name.erase(type_name.length()-4);
+        }
+
         //primitives
         if (type_name == "bool") {
+            if(ptr){return  llvm::Type::getInt1PtrTy(m_context);}
             return llvm::Type::getInt1Ty(m_context);
         } else if (type_name == "int") {
+            if(ptr){return  llvm::Type::getInt32PtrTy(m_context);}
             return llvm::Type::getInt32Ty(m_context);
         } else if (type_name == "float") {
+            if(ptr){return  llvm::Type::getFloatPtrTy(m_context);}
             return llvm::Type::getFloatTy(m_context);
         } else if (type_name == "chars") {
+            if(ptr){return  llvm::PointerType::get(llvm::Type::getInt8PtrTy(m_context),0);}
             return llvm::Type::getInt8PtrTy(m_context);
         }
         else if (type_name == "void") {
@@ -895,6 +914,7 @@ private:
         //might be class
         object class_type = m_environment->getValue(type.original + "_class");
         if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+            if(ptr){return  llvm::PointerType::get(*class_def,0);}
             return *class_def;
         }
         //type not supported, just return float.
@@ -902,7 +922,7 @@ private:
         return llvm::Type::getFloatTy(m_context);
     }
     //get name from type
-    static std::string getTypeName(llvm::Type* type) {
+     std::string getTypeName(llvm::Type* type) {
         //primitives
         if(type->isFloatTy()){
             return "float";
@@ -910,12 +930,20 @@ private:
             return "int";
         }else if(type->isIntegerTy(1)){
             return "bool";
-        }else if(type->isPointerTy()){
+        }else if(type == llvm::Type::getInt8PtrTy(m_context)){
             return "chars";
         }else if(type->isVoidTy()){
             return "void";
         }else if(type->isStructTy()){
             return type->getStructName().str();
+        }else if(type == llvm::Type::getFloatPtrTy(m_context)){
+            return "float_ptr";
+        }else if(type == llvm::Type::getInt32PtrTy(m_context)){
+            return "int_ptr";
+        }else if(type == llvm::Type::getInt1PtrTy(m_context)){
+            return "bool_ptr";
+        }else if(type->isPointerTy()){
+            return type->getContainedType(0)->getStructName().str() + "_ptr";
         }
         return "null";
     }

@@ -257,7 +257,7 @@ public:
 
     object visitAssignExpression(Assign* expression){
         std::string value = evalS(expression->m_value);
-        object get = m_environment->getValue(expression->m_name.original);
+        object get = m_environment->getValue(expression->m_name);
         if(std::get_if<std::string>(&get)){
         if(value != std::get<std::string>(get)){
             if(std::get<std::string>(get) != "float" && value != "int" ) {
@@ -266,27 +266,38 @@ public:
             return (std::string)"null";
         }
 
-        if(m_environment->isConst(expression->m_name.original)){
+        if(m_environment->isConst(expression->m_name)){
             m_error_handler->error(expression->m_line,"Attempt to write constant.");
             return (std::string)"null";
         }
         }else{
-            m_error_handler->error(expression->m_line,"Assignment undefined: " + expression->m_name.original);
+            m_error_handler->error(expression->m_line,"Assignment undefined: " + expression->m_name);
         }
 
         return (std::string)"null";
     }
 
-    object visitVariableExpression(Variable* expression){
+    object visitVariableExpression(Variable* expression) {
         object value = m_environment->getValue(expression->m_name.original);
-        if(std::get_if<null_object>(&value)){
-            m_error_handler->error(expression->m_line,"Reference undefined: " + expression->m_name.original);
-            return (std::string)"null";
+        if (std::get_if<null_object>(&value)) {
+            m_error_handler->error(expression->m_line, "Reference undefined: " + expression->m_name.original);
+            return (std::string) "null";
         }
-        if(Class* class_type = std::get_if<Class>(&value)){
+        if (Class *class_type = std::get_if<Class>(&value)) {
             return class_type->m_name;
         }
         return value;
+    }
+    object visitPointerExpression(Pointer *expression) {
+        std::string variable = evalS(expression->m_variable);
+        //dereference
+        if(variable.find("_ptr") != std::string::npos){
+            variable.erase(variable.length()-4);
+            return variable;
+        }else{
+            //reference
+            return variable + "_ptr";
+        }
     }
 
 

@@ -20,14 +20,22 @@ this.y = in_y;
 
 }
 
-
+void addFive(int_ptr p){
+&p = &p + 5;
+}
 //main function
 int main(){
 
+int z = 2;
+
+int_ptr z_pointer = &z;
+addFive(z_pointer);
+print(z);
+print("\n");
 point p;
 p.f = 11;
 
-float a= 22;
+float a = 22;
 a = 34;
 a = a + 5;
 print(a);
