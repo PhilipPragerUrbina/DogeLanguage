@@ -20,32 +20,20 @@ this.y = in_y;
 
 }
 
-void addFive(int_ptr p){
-&p = &p + 5;
+void addFive(point_ptr p){
+&p.x = &p.x + 1000;
 }
 //main function
 int main(){
 
-int z = 2;
-
-int_ptr z_pointer = &z;
-addFive(z_pointer);
-print(z);
-print("\n");
 point p;
-p.f = 11;
 
-float a = 22;
-a = 34;
-a = a + 5;
-print(a);
+point_ptr z_pointer = &p;
+&z_pointer.x = 400;
+addFive(z_pointer);
+print(p.x);
+print("\n");
 
-if(a == getPi() ){
-    print(a);
-}else{
-print(a);
-
-}
 string s = string("Enter precision");
 s = s + ": ";
 print(s);

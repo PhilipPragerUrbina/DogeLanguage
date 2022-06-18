@@ -398,6 +398,14 @@ public:
                         environment->define(Arg.getName().str() + "_type",Arg.getType()->getStructName().str() + "_class");
                     }
             }
+            if (Arg.getType()->isPointerTy()) {
+                if(Arg.getType()->getContainedType(0)->isStructTy()){
+                    object class_type = m_environment->getValue(Arg.getType()->getContainedType(0)->getStructName().str() + "_class");
+                    if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+                        environment->define(Arg.getName().str() + "_type",Arg.getType()->getContainedType(0)->getStructName().str() + "_class");
+                    }
+                }
+            }
         }
         //make body
         evalBlock(statement->m_body, environment);
@@ -426,11 +434,16 @@ public:
 
     object visitVariableStatement(VariableStatement *statement) {
         llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
+        //still get class type if pointer
+        std::string type_name = statement->m_type.original;
+        if(type_name.find("_ptr") != std::string::npos) {
+            type_name.erase(type_name.length() - 4);
+        }
         //check if class
-        object class_type = m_environment->getValue(statement->m_type.original + "_class");
+        object class_type = m_environment->getValue(type_name + "_class");
         if (std::get_if<llvm::Type *>(&class_type)) {
                 //define type
-                m_environment->define(statement->m_name.original + "_type", statement->m_type.original + "_class");
+                m_environment->define(statement->m_name.original + "_type", type_name  + "_class");
         }
         llvm::AllocaInst *Alloca = blockAllocation(parent, statement->m_name.original,getType(statement->m_type));
         m_environment->define(std::string(statement->m_name.original), Alloca);
@@ -912,7 +925,7 @@ private:
             return llvm::Type::getVoidTy(m_context);
         }
         //might be class
-        object class_type = m_environment->getValue(type.original + "_class");
+        object class_type = m_environment->getValue(type_name + "_class");
         if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
             if(ptr){return  llvm::PointerType::get(*class_def,0);}
             return *class_def;
