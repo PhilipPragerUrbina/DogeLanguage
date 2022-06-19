@@ -257,11 +257,10 @@ public:
 
     object visitAssignExpression(Assign* expression){
         std::string value = evalS(expression->m_value);
-        object get = m_environment->getValue(expression->m_name);
-        if(std::get_if<std::string>(&get)){
-        if(value != std::get<std::string>(get)){
-            if(std::get<std::string>(get) != "float" && value != "int" ) {
-                m_error_handler->error(expression->m_line, "Cannot assign different type.");
+        std::string get = evalS(expression->m_variable);
+        if(value != get){
+            if(get != "float" && value != "int" ) {
+                m_error_handler->error(expression->m_line, "Cannot assign different type: " +get + " and " + value );
             }
             return (std::string)"null";
         }
@@ -270,10 +269,6 @@ public:
             m_error_handler->error(expression->m_line,"Attempt to write constant.");
             return (std::string)"null";
         }
-        }else{
-            m_error_handler->error(expression->m_line,"Assignment undefined: " + expression->m_name);
-        }
-
         return (std::string)"null";
     }
 
@@ -300,9 +295,21 @@ public:
         }
     }
 
+    object visitMemoryExpression(Memory *expression){
+        std::string variable = evalS(expression->m_right);
+        if(expression->m_type == NEW){
+            return variable + + "_ptr";
+        }
+        //must be a delete
+        if(variable.find("_ptr") != std::string::npos) {
+            return (std::string)"null";
+        }
+        m_error_handler->error(expression->m_line, "Cannot delete non pointer.");
+    }
 
     object visitGetExpression(Get *expression) {
         std::string value = evalS(expression->m_object);
+
         object class_ = m_environment->getValue(value);
         if (Class* obj = std::get_if<Class>(&class_)) {
             object out =  obj->m_environment->getValue(expression->m_name.original);

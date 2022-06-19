@@ -88,7 +88,7 @@ enum TokenType {
     BANG, BANG_EQUAL,
     EQUAL, EQUAL_EQUAL,
     GREATER, GREATER_EQUAL,
-    LESS, LESS_EQUAL,
+    LESS, LESS_EQUAL, NEW, DELETE,
     //literals
     IDENTIFIER, STRING, INTEGER, FLOATING,EXTERN,
     //words.
@@ -157,7 +157,8 @@ public:
         m_keywords[ "int" ] = VAR;
         m_keywords[ "float" ] = VAR;
         m_keywords[ "chars" ] = VAR;
-
+        m_keywords[ "new" ] = NEW;
+        m_keywords[ "delete" ] = DELETE;
         m_keywords[ "bool_ptr" ] = VAR;
         m_keywords[ "int_ptr" ] = VAR;
         m_keywords[ "float_ptr" ] = VAR;

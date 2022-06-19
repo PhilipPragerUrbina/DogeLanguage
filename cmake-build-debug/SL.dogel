@@ -52,3 +52,4 @@ void print(string s){
 float floatIn(){
     return toFloat(charsIn());
 }
+

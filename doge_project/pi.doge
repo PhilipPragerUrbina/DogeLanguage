@@ -1,5 +1,0 @@
-#include "constant.doge";
-
-float getPi(){
-return pic;
-}

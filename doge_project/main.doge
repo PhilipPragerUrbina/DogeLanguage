@@ -1,48 +1,8 @@
 #import SL;
-#include "pi.doge";
-float pi(float n) {
-    float sum = 0.0;
-    float sign = 1.0;
-    for (float i = 0.0; i < n; i = i + 1.0) {
-        sum =  sum + sign/(2.0*i+1.0);
-        sign = sign * -1.0;
-    }
-    return 4.0*sum;
-}
-class point{
-int x = 100;
 
-int y = 200;
-float f = 22;
-void point(int in_y){
-this.y = in_y;
-}
-
-}
-
-void addFive(point_ptr p){
-&p.x = &p.x + 1000;
-}
 //main function
 int main(){
 
-point p;
-
-point_ptr z_pointer = &p;
-&z_pointer.x = 400;
-addFive(z_pointer);
-print(p.x);
-print("\n");
-
-string s = string("Enter precision");
-s = s + ": ";
-print(s);
-
-float in = floatIn();
-print("\n");
-print(pi(in));
-print("\n");
-print(getPi());
 return 0;
 
 }

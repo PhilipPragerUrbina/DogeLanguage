@@ -691,6 +691,22 @@ public:
             return (llvm::Value*)m_last_pointer;
         }
     }
+
+    object visitMemoryExpression(Memory *expression){
+        llvm::Value *variable = std::get<llvm::Value *>(eval(expression->m_right));
+        if(expression->m_type == NEW){
+            //call malloc
+            llvm::Constant* AllocSize =   llvm::ConstantExpr::getSizeOf(variable->getType());
+            //get pointer size 32 bits
+            AllocSize = llvm::ConstantExpr::getTruncOrBitCast(AllocSize, llvm::Type::getInt32Ty(m_context));
+          llvm::Value* to_return = (llvm::Value*)llvm::CallInst::CreateMalloc(m_builder.GetInsertPoint()->getPrevNonDebugInstruction(),llvm::Type::getInt32Ty(m_context),variable->getType(), AllocSize,
+                                              nullptr, nullptr);
+          m_builder.CreateStore(variable,to_return);
+            return to_return;
+        }
+        //must be a delete
+        return (llvm::Value*)llvm::CallInst::CreateFree(variable, m_builder.GetInsertBlock()) ;
+    }
     object visitBinaryExpression(Binary *expression) {
         //get values
         llvm::Value *right = std::get<llvm::Value *>(eval(expression->m_right));

@@ -361,6 +361,16 @@ private:
             Expression* right = unary();
             return new Unary(operation_, right, getLine());
         }
+        return memoryExpression();
+    }
+    Expression* memoryExpression(){
+        if(match({NEW})){
+            Expression* right = callExpression();
+            return new Memory(right, NEW, getLine());
+        }else if(match({DELETE})){
+            Expression* right = callExpression();
+            return new Memory(right, DELETE, getLine());
+        }
         return callExpression();
     }
     Expression* callExpression(){

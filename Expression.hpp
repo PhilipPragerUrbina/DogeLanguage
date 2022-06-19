@@ -30,6 +30,7 @@ class Get;
 class Set;
 class ImportStatement;
 class IncludeStatement;
+class Memory;
 
 //using visitor pattern
 class Visitor {
@@ -56,6 +57,8 @@ public:
     virtual object visitPointerExpression(Pointer* expression){std::cout << m_visitor_name << " visitPointerExpression " << " not implemented \n";return 0;}
     virtual object visitGetExpression(Get* expression){std::cout << m_visitor_name << " visitGetExpression " << " not implemented \n";return 0;}
     virtual object visitSetExpression(Set* expression){std::cout << m_visitor_name << " visitSetExpression " << " not implemented \n";return 0;}
+    virtual object visitMemoryExpression(Memory* expression){std::cout << m_visitor_name << " visitMemoryExpression " << " not implemented \n";return 0;}
+
 };
 
 //base class
@@ -100,6 +103,21 @@ public:
     Expression* m_callee;
     Token m_paren;
     std::vector<Expression*> m_arguments;
+};
+
+class Memory : public Expression {
+public:
+    Memory(Expression* right,  TokenType type, int line) {
+        m_right = right;
+        m_line = line;
+        m_type = type;
+    }
+
+    object accept(Visitor* visitor) {
+        return visitor->visitMemoryExpression(this);
+    }
+    TokenType m_type;
+    Expression* m_right;
 };
 
 class Get : public Expression {
