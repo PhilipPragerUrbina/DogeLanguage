@@ -195,7 +195,7 @@ public:
         }
 
         if(Callable* function = std::get_if<Callable>(&callee_obj)) {
-                if(function->m_class != ""){
+                if(function->m_declaration->m_class_name!= ""){
                         overload = overload + "_" + function->m_declaration->m_class_name+"_";}
         }
 

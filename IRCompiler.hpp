@@ -226,8 +226,8 @@ public:
     object visitClassStatement(ClassStatement *statement) {
         //create new type
         llvm::StructType *new_class = llvm::StructType::create(m_context, statement->m_name.original);
-
-
+    //define class
+        m_environment->define(statement->m_name.original + "_class", (llvm::Type *) new_class);
         //member variable types
         std::vector<llvm::Type *> types;
         std::vector<Statement *> inits;
@@ -252,9 +252,8 @@ public:
                 id++; //increment
             }
         }
-        //set body and define class
+        //set body
         new_class->setBody(types);
-        m_environment->define(statement->m_name.original + "_class", (llvm::Type *) new_class);
       //create default constructor for initializing members
       if(!inits.empty()){
           FunctionStatement constructor(Token("default"),{},inits,Token("void"),statement->m_line,statement->m_name.original);
@@ -405,6 +404,7 @@ public:
                         environment->define(Arg.getName().str() + "_type",Arg.getType()->getContainedType(0)->getStructName().str() + "_class");
                     }
                 }
+
             }
         }
         //make body
