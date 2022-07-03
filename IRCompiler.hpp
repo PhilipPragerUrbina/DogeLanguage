@@ -338,6 +338,7 @@ public:
         callable.name = name;
         callable.m_class = statement->m_class_name;
         m_environment->define(name, callable);
+
         //add overload name
         for (VariableStatement *param: statement->m_parameters) {
             name = name + ("_" + param->m_type.original);
@@ -413,6 +414,7 @@ public:
         if(statement->m_type.original == "void"){
             m_builder.CreateRetVoid();
         }
+
         //validate
         llvm::verifyFunction(*function);
         return null_object();
@@ -470,7 +472,18 @@ public:
         llvm::Value* class_object =  std::get<llvm::Value *>(eval(expression->m_object));
         llvm::Value *class_object_pointer = m_last_pointer;
         if(class_object->getType()->isPointerTy()){class_object_pointer = class_object;} //if is pointer use value not pointer to pointer
-        std::string class_name = std::get<std::string>(m_environment->getValue(m_last_variable_name + "_type"));
+        //get class name
+        object class_name_obj = m_environment->getValue(m_last_variable_name + "_type");
+        std::string class_name;
+        if( std::string* class_name_ptr = std::get_if<std::string >(&class_name_obj)) {
+            class_name = *class_name_ptr;
+        }else{
+            //this is a temp var, so the name of the class will just be the last name used
+            //eg string("aaa").print() means the last name is string
+            class_name = m_last_variable_name + "_class";
+        }
+
+
 
         //get index
         object index_obj = m_environment->getValue(class_name + "_" + expression->m_name.original);
@@ -570,6 +583,7 @@ public:
                 arguments.push_back(alloca_inst);
                 m_builder.CreateCall(constructor, arguments);
             }
+            m_last_pointer = alloca_inst;
             //return object
             return (llvm::Value *) m_builder.CreateLoad((llvm::StructType *)class_type,alloca_inst, "temp_class_constructor_loaded");
         }

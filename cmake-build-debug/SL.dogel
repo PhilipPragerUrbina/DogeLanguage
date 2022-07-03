@@ -32,6 +32,7 @@ class string{
     void print(){
         printChars(m_chars);
     }
+
 }
 //consistent printing
 void print(int i){

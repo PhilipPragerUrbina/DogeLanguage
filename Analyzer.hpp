@@ -127,6 +127,8 @@ public:
         if(statement->m_else_branch != nullptr ){
            statement->m_else_branch->accept(this);
         }
+        //make sure there is a return for every branch
+        m_return  = "";
         return (std::string)"null";
     }
     object visitWhileStatement(WhileStatement* statement){
@@ -134,6 +136,8 @@ public:
         m_loop_num++;
         statement->m_body->accept(this);
         m_loop_num--;
+        //make sure there is a return for every branch
+        m_return  = "";
         return (std::string)"null";
     }
     bool m_function = false;
@@ -195,8 +199,11 @@ public:
         }
 
         if(Callable* function = std::get_if<Callable>(&callee_obj)) {
-                if(function->m_declaration->m_class_name!= ""){
+
+                if(function->m_declaration->m_class_name!= "" && m_member){
+
                         overload = overload + "_" + function->m_declaration->m_class_name+"_";}
+            m_member = false;
         }
 
         //if class check constructor
@@ -306,8 +313,10 @@ public:
         }
         m_error_handler->error(expression->m_line, "Cannot delete non pointer.");
     }
-
+    //track if call is part of a class
+    bool m_member = false;
     object visitGetExpression(Get *expression) {
+        m_member = true;
         std::string value = evalS(expression->m_object);
 
         object class_ = m_environment->getValue(value);
