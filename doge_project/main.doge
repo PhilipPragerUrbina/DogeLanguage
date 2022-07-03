@@ -1,7 +1,95 @@
 #import SL;
 
+class node {
+node_ptr child;
+bool end = false;
+int value = 0;
+int index = 0;
+void node(int i, bool e, int v){
+end =e;
+index = i;
+value = v;
+}
+void eat(){
+print(string("bbbb"));
+}
+
+
+
+}
+void push(node_ptr parent, node_ptr what){
+bool end = &parent.end;
+if(end){
+&parent.child = what;
+&parent.end = false;
+
+}else{
+node a = &parent;
+push(a.child,what);
+}
+}
+
+int get(node_ptr parent,int i){
+node par = &parent;
+if(par.index == i || par.end){
+int val =  par.value;
+return val;
+}
+
+node a = &parent;
+return get(a.child,i);
+
+}
+class list{
+node_ptr first;
+int size = 0;
+
+
+
+
+
+
+void push_back(int what){
+if(size == 0){
+first = new node(0,true,what);
+}else{
+push(first, new node(size, true,what));
+
+}
+size++;
+
+}
+
+int gee(int i){
+return get(first,i);
+}
+
+void eat(){
+print(string("aaaaaaa"));
+}
+
+
+}
+
+
+
 //main function
 int main(){
+list l = list();
+for(int e = 0; e < 200; e++){
+l.push_back(e * 5 -1);
+}
+for(int i = 0; i < l.size; i++){
+string a = string(l.gee(i));
+a.print();
+print(string("\n"));
+
+string("\n").print();
+
+printChars("\n");
+l.eat();
+}
+
 
 return 0;
 
