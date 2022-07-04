@@ -419,13 +419,18 @@ public:
         llvm::verifyFunction(*function);
         return null_object();
     }
+    //did return just happen
+    bool m_returned = false;
     object visitReturnStatement(ReturnStatement *statement) {
+        //destructors
+        destruct();
         if (statement->m_value != nullptr) {
             object value = eval(statement->m_value);
             m_builder.CreateRet(std::get<llvm::Value *>(value));
         } else {
             m_builder.CreateRetVoid();
         }
+        m_returned = true;
         return null_object();
     }
 
@@ -719,7 +724,20 @@ public:
             return to_return;
         }
         //must be a delete
-        return (llvm::Value*)llvm::CallInst::CreateFree(variable, m_builder.GetInsertBlock()) ;
+        //call destructor
+        if(variable->getType()->getContainedType(0)->isStructTy()) {
+            llvm::Function *destructor = m_module.getFunction(
+                    variable->getType()->getContainedType(0)->getStructName().str() + "_class_" + "destruct");
+            if (destructor) {
+                m_builder.CreateCall(destructor, {variable});
+            }
+        }
+
+
+        llvm::Instruction* free = llvm::CallInst::CreateFree(variable,m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
+     free->moveAfter(m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
+
+        return null_object() ;
     }
     object visitBinaryExpression(Binary *expression) {
         //get values
@@ -907,12 +925,36 @@ private:
         for (Statement *inner_statement: statements) {
             inner_statement->accept(this);
         }
+        //destruct local vars
+        if(!m_returned){
+            destruct();
+        }
+        m_returned = false;
+
         //cleanup
         delete environment;
         //back to original env
         m_environment = prev_env;
     }
+    //call destructors for local variables
+    void destruct(){
+        for (std::pair<std::string, object> element :  m_environment->m_values)
+        {
+            //check if pointer exists to variable
+            if( llvm::AllocaInst** val = std::get_if< llvm::AllocaInst* >(&element.second)){
+                llvm::AllocaInst* variable = *val;
+                if(variable->getAllocatedType()->isStructTy()) {
+                    llvm::Function *destructor = m_module.getFunction(
+                            variable->getAllocatedType()->getStructName().str() + "_class_" + "destruct");
+                    if (destructor) {
+                        m_builder.CreateCall(destructor, {variable});
+                    }
+                }
 
+            }
+
+        }
+    }
     //create alloca at entry block. This is for easier analysis and optimization of code by llvm.
     llvm::AllocaInst *blockAllocation(llvm::Function *function, const std::string &variable_name, llvm::Type *type) {
         llvm::IRBuilder<> block(&function->getEntryBlock(),function->getEntryBlock().begin());
@@ -1002,6 +1044,10 @@ private:
         m_error_handler->error("Unsupported conversion: " + not_float->getName().str());
         return not_float;
     }
+
+
+
+
 
 };
 #endif //PROGRAM_IRCOMPILER_HPP

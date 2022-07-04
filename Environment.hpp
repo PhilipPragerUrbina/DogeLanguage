@@ -70,14 +70,15 @@ public:
 
 
     }
-private:
-    Environment* m_enclosing = nullptr;
-
     //could be faster?
     std::unordered_map<std::string,object> m_values;
     std::unordered_map<std::string,bool> m_constants;
     //could be more memory efficient but slower?
-   // std::map<std::string,object> m_values;
+    // std::map<std::string,object> m_values;
+private:
+    Environment* m_enclosing = nullptr;
+
+
 };
 
 #endif PROGRAM_ENVIRONMENT_HPP
