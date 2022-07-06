@@ -269,6 +269,8 @@ private:
             Expression* right = assignment();
             if (Variable* variable = dynamic_cast<Variable*>(left)){
                 return new Assign(right,left, getLine(), variable->m_name.original);
+            }else if(Brackets* variable = dynamic_cast<Brackets*>(left)){
+                return new Assign(right,left, getLine(), "brakcets");
             }
             else if (Pointer* ptr = dynamic_cast<Pointer*>(left)){
 
@@ -374,7 +376,7 @@ private:
         return callExpression();
     }
     Expression* callExpression(){
-        Expression* left = primary();
+        Expression* left = bracketExpression();
         while(true){
             if(match({LEFT_PAREN})){
             left = callFinalize(left);}
@@ -386,6 +388,18 @@ private:
                 break;
             }
         }
+        return left;
+    }
+
+    Expression* bracketExpression(){
+        Expression* left = primary();
+
+        if(match({LEFT_BRACKET})){
+            Expression* inside = expression();
+
+            Token paren = consume(RIGHT_BRACKET,
+                                  "Expect ']' after contents.");
+            left = new Brackets(left, inside, getLine());}
         return left;
     }
     Expression* callFinalize(Expression* callee){

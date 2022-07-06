@@ -31,6 +31,7 @@ class Set;
 class ImportStatement;
 class IncludeStatement;
 class Memory;
+class Brackets;
 
 //using visitor pattern
 class Visitor {
@@ -57,6 +58,7 @@ public:
     virtual object visitPointerExpression(Pointer* expression){std::cout << m_visitor_name << " visitPointerExpression " << " not implemented \n";return 0;}
     virtual object visitGetExpression(Get* expression){std::cout << m_visitor_name << " visitGetExpression " << " not implemented \n";return 0;}
     virtual object visitSetExpression(Set* expression){std::cout << m_visitor_name << " visitSetExpression " << " not implemented \n";return 0;}
+    virtual object visitBracketsExpression(Brackets* expression){std::cout << m_visitor_name << " visitBracketsExpression " << " not implemented \n";return 0;}
     virtual object visitMemoryExpression(Memory* expression){std::cout << m_visitor_name << " visitMemoryExpression " << " not implemented \n";return 0;}
 
 };
@@ -84,6 +86,21 @@ public:
 
     Expression* m_left;
     Token m_operator_;
+    Expression* m_right;
+};
+class Brackets : public Expression {
+public:
+    Brackets(Expression* left, Expression* right, int line) {
+        m_left = left;
+        m_right = right;
+        m_line = line;
+    }
+
+    object accept(Visitor* visitor) {
+        return visitor->visitBracketsExpression(this);
+    }
+
+    Expression* m_left;
     Expression* m_right;
 };
 

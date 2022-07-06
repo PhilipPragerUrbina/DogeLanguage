@@ -321,6 +321,8 @@ public:
     }
 
     object visitFunctionStatement(FunctionStatement *statement) {
+
+
         //get basic info
         std::string name = statement->m_name.original;
         int size = statement->m_parameters.size();
@@ -560,6 +562,7 @@ public:
 
     object visitCallExpression(Call *expression) {
         object callee_temp = eval(expression->m_callee);
+
     //get arguments
         std::string overload = "";
         std::vector<llvm::Value *> arguments;
@@ -593,8 +596,41 @@ public:
             return (llvm::Value *) m_builder.CreateLoad((llvm::StructType *)class_type,alloca_inst, "temp_class_constructor_loaded");
         }
 
+
+
         // Look up the name in the global module table.
         Callable callee = std::get<Callable>(callee_temp);
+        //check for built in array function
+        if(callee.name == "array" || callee.name == "local_array"){
+            if(expression->m_arguments.size() != 2){  m_error_handler->error(expression->m_line, "Array takes 2 arguments");return null_object();}
+            //get type
+            llvm::Value *variable = arguments[0];
+            //get array size
+            llvm::Value* array_size = arguments[1];
+            if(array_size->getType() != llvm::Type::getInt32Ty(m_context)){m_error_handler->error(expression->m_line, "Array need int size");return null_object();}
+
+            //allocate
+            llvm::Instruction* to_return;
+            if(callee.name == "local_array"){
+
+                to_return =  m_builder.CreateAlloca(variable->getType(), array_size);
+            }else{
+                //get size
+                llvm::Constant* AllocSize =   llvm::ConstantExpr::getSizeOf(variable->getType());
+                AllocSize = llvm::ConstantExpr::getTruncOrBitCast(AllocSize, llvm::Type::getInt32Ty(m_context));
+                //temporary instruction to trick the evil llvm into  thinking its putting its stuff before
+                llvm::Instruction* to_move =  m_builder.CreateAlloca(variable->getType(), array_size);
+                to_return = llvm::CallInst::CreateMalloc(m_builder.GetInsertPoint()->getPrevNode(),llvm::Type::getInt32Ty(m_context),variable->getType(), AllocSize,
+                                                         array_size, nullptr);
+                //remove temporary instruction
+                  to_move->eraseFromParent();
+
+            }
+            m_builder.CreateStore(variable,(llvm::Value*)to_return);
+
+                return  (llvm::Value*)to_return;
+        }
+
         std::string name = callee.name + overload;
 
 
@@ -618,6 +654,12 @@ public:
     }
     //add this to expression and see if it works. Otherwise, just normally search for variable.
     object visitVariableExpression(Variable *expression) {
+        //check for special fucntions
+        if(expression->m_name.original == "array"){
+            return Callable("array" );
+        }else if(expression->m_name.original == "local_array"){
+            return Callable("local_array" );
+        }
         //check if a member variable matches
         object this_object = m_environment->getValue("this");
         //does this function have a this
@@ -714,14 +756,17 @@ public:
     object visitMemoryExpression(Memory *expression){
         llvm::Value *variable = std::get<llvm::Value *>(eval(expression->m_right));
         if(expression->m_type == NEW){
-            //call malloc
+           //get size
             llvm::Constant* AllocSize =   llvm::ConstantExpr::getSizeOf(variable->getType());
             //get pointer size 32 bits
             AllocSize = llvm::ConstantExpr::getTruncOrBitCast(AllocSize, llvm::Type::getInt32Ty(m_context));
-          llvm::Value* to_return = (llvm::Value*)llvm::CallInst::CreateMalloc(m_builder.GetInsertPoint()->getPrevNonDebugInstruction(),llvm::Type::getInt32Ty(m_context),variable->getType(), AllocSize,
+            //temporary instruction to trick the evil llvm into  thinking its putting its stuff before
+            llvm::Instruction* to_move =  m_builder.CreateAlloca(variable->getType(), nullptr);
+          llvm::Instruction* to_return = llvm::CallInst::CreateMalloc(m_builder.GetInsertPoint()->getPrevNonDebugInstruction(),llvm::Type::getInt32Ty(m_context),variable->getType(), AllocSize,
                                               nullptr, nullptr);
-          m_builder.CreateStore(variable,to_return);
-            return to_return;
+            to_move->eraseFromParent();
+          m_builder.CreateStore(variable,(llvm::Value*)to_return);
+            return (llvm::Value*)to_return;
         }
         //must be a delete
         //call destructor
@@ -735,10 +780,37 @@ public:
 
 
         llvm::Instruction* free = llvm::CallInst::CreateFree(variable,m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
+        //move to correct spot, curse you llvm
      free->moveAfter(m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
 
         return null_object() ;
     }
+
+    object visitBracketsExpression(Brackets *expression) {
+        //get values
+        llvm::Value *right = std::get<llvm::Value *>(eval(expression->m_right));
+        llvm::Value *left = std::get<llvm::Value *>(eval(expression->m_left));
+        if(left->getType()->isPointerTy()){
+            //get member pointer
+            llvm::Value *member_ptr = m_builder.CreateGEP(left->getType()->getContainedType(0), left, {right},"arr");
+            //set variables for next get expression
+            m_last_pointer = (llvm::AllocaInst *) member_ptr;
+            //return value
+            return (llvm::Value *) m_builder.CreateLoad(((llvm::StructType *) left->getType()->getContainedType(0)),member_ptr, "arr_loaded");
+        }
+
+        if(left->getType()->isStructTy()) {
+            //check for overload
+            llvm::Function *callee_function = m_module.getFunction(
+                    left->getType()->getStructName().str() + "_class_brackets_" + getTypeName(right->getType()));
+            if (callee_function) {
+
+                return (llvm::Value *) m_builder.CreateCall(callee_function,{right, m_last_pointer /* this needs to be pointer */},"brackets_overload");
+            }
+        }
+        m_error_handler->error(expression->m_line, "Not a brackets type");
+        return 0;
+    };
     object visitBinaryExpression(Binary *expression) {
         //get values
         llvm::Value *right = std::get<llvm::Value *>(eval(expression->m_right));
@@ -968,7 +1040,6 @@ private:
         indices[1] = member_index;
         return indices;
     }
-
 
     //get type from token
     llvm::Type *getType(const Token type) {

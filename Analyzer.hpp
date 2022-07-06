@@ -188,6 +188,9 @@ public:
     //expressions
     object visitCallExpression(Call* expression) {
         std::string callee = evalS(expression->m_callee);
+        if(callee == "array" || callee == "local_array"){
+            return evalS(expression->m_arguments[0])+"_ptr";
+        }
         object callee_obj = m_environment->getValue(callee);
 
 
@@ -280,6 +283,11 @@ public:
     }
 
     object visitVariableExpression(Variable* expression) {
+        if(expression->m_name.original == "array"){
+            return std::string ("array");
+        }else if(expression->m_name.original == "local_array"){
+            return std::string ("local_array");
+        }
         object value = m_environment->getValue(expression->m_name.original);
         if (std::get_if<null_object>(&value)) {
             m_error_handler->error(expression->m_line, "Reference undefined: " + expression->m_name.original);
@@ -351,7 +359,17 @@ public:
         m_error_handler->error(expression->m_line,"Cannot write property of non object.");
         return (std::string)"null";
     }
-
+    object visitBracketsExpression(Brackets* expression){
+        std::string right = evalS(expression->m_right);
+        std::string left = evalS(expression->m_left);
+        if(left.find("_ptr") != std::string::npos){
+            left.erase(left.length()-4);
+            return left;
+        }
+        return checkOperator(left,right, "brackets");
+        m_error_handler->error(expression->m_line,"Not a brackets type");
+        return std::string("null");
+    };
 
     object visitBinaryExpression(Binary* expression){
         std::string right = evalS(expression->m_right);

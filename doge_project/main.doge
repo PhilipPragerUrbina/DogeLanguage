@@ -70,7 +70,7 @@ size++;
 
 }
 
-int gee(int i){
+int brackets(int i){
 
 return get(first,i);
 }
@@ -87,6 +87,7 @@ print(string("aaaaaaa\n"));
 
 //main function
 int main(){
+/*
 boop wheee = boop();
 boop_ptr foo = new boop();
 printChars("aaaaa\n");
@@ -94,13 +95,13 @@ delete foo;
 printChars("eeee\n");
 int_ptr ii = new 0;
 delete ii;
-/*
+
 list l = list();
 for(int e = 0; e < 200; e++){
 l.push_back(e * 5 -1);
 }
 for(int i = 0; i < l.size; i++){
-string a = string(l.gee(i));
+string a = string(l[i]);
 a.print();
 print(string("\n"));
 
@@ -110,6 +111,23 @@ printChars("\n");
 l.eat();
 }
 */
+print("size: \n");
+{
+
+string_ptr arr = local_array( string("aaaaa"),toInt(floatIn()));
+
+
+print(" \n set: \n");
+int i = toInt(floatIn());
+print("to: \n");
+arr[i] = string(charsIn());
+
+
+print("get: \n");
+arr[toInt(floatIn())].print();
+
+}
+print("wheeeee");
 
 return 0;
 

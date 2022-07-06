@@ -70,6 +70,9 @@ public:
         m_argument_number = args; m_call = func;
         m_declaration = declaration;
     }
+    Callable(std::string n){
+        name = n;
+    }
     std::string name;
     std::string m_class = "";
     FunctionStatement* m_declaration;
@@ -82,7 +85,7 @@ public:
 
 enum TokenType {
     //single tokens
-    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
+    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,LEFT_BRACKET,RIGHT_BRACKET,
     COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR,
     //two char tokens
     BANG, BANG_EQUAL,
@@ -253,6 +256,8 @@ public:
                 switch (character) {
                     //single character
                     case '(': addToken(LEFT_PAREN); break;
+                    case '[': addToken(LEFT_BRACKET); break;
+                    case ']': addToken(RIGHT_BRACKET); break;
                     case '#': addToken(HASH); break;
                     case ')': addToken(RIGHT_PAREN); break;
                     case '{': addToken(LEFT_BRACE); break;
