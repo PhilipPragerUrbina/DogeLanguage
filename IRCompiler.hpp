@@ -226,11 +226,13 @@ public:
     object visitClassStatement(ClassStatement *statement) {
         //create new type
         llvm::StructType *new_class = llvm::StructType::create(m_context, statement->m_name.original);
-    //define class
+        //define class
         m_environment->define(statement->m_name.original + "_class", (llvm::Type *) new_class);
         //member variable types
         std::vector<llvm::Type *> types;
+        //constructor and destructor statements
         std::vector<Statement *> inits;
+        std::vector<Statement *> destructs;
         int id = 0;
         for (Statement *member: statement->m_members) {
             //if member is variable
@@ -244,21 +246,29 @@ public:
                 object class_type = m_environment->getValue(member_var->m_type.original + "_class");
                 if (!std::get_if<null_object>(&class_type)) {
                     m_environment->define(statement->m_name.original + "_class_" + member_var->m_name.original + "_type",member_var->m_type.original + "_class");
+                    destructs.push_back(new ExpressionStatement(new Assign(member_var, true),statement->m_line));
                 }
                 //check for member initialization
                 if(member_var->m_initializer != nullptr){
                     inits.push_back(new ExpressionStatement(new Assign(member_var),statement->m_line));
+                }else if(!std::get_if<null_object>(&class_type)){
+                    m_error_handler->warning(member_var->m_line,"Uninitialized member class contains garbage. assign it to a class() to call constructors! Or you will face the wrath of weird destructors!");
                 }
                 id++; //increment
             }
         }
         //set body
         new_class->setBody(types);
-      //create default constructor for initializing members
-      if(!inits.empty()){
-          FunctionStatement constructor(Token("default"),{},inits,Token("void"),statement->m_line,statement->m_name.original);
-          constructor.accept(this);
-      }
+        //create default constructor for initializing members
+        if(!inits.empty()){
+            FunctionStatement constructor(Token("default"),{},inits,Token("void"),statement->m_line,statement->m_name.original);
+            constructor.accept(this);
+        }
+        //create default destructor
+        if(!destructs.empty()){
+            FunctionStatement destructor(Token("destructor_default"),{},destructs,Token("void"),statement->m_line,statement->m_name.original);
+            destructor.accept(this);
+        }
 
         //add member functions
         for (Statement *member: statement->m_members) {
@@ -396,9 +406,9 @@ public:
             //define class types if of class type
             if (Arg.getType()->isStructTy()) {
                 object class_type = m_environment->getValue(Arg.getType()->getStructName().str() + "_class");
-                    if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
-                        environment->define(Arg.getName().str() + "_type",Arg.getType()->getStructName().str() + "_class");
-                    }
+                if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+                    environment->define(Arg.getName().str() + "_type",Arg.getType()->getStructName().str() + "_class");
+                }
             }
             if (Arg.getType()->isPointerTy()) {
                 if(Arg.getType()->getContainedType(0)->isStructTy()){
@@ -451,19 +461,21 @@ public:
         //check if class
         object class_type = m_environment->getValue(type_name + "_class");
         if (std::get_if<llvm::Type *>(&class_type)) {
-                //define type
-                m_environment->define(statement->m_name.original + "_type", type_name  + "_class");
+            //define type
+            m_environment->define(statement->m_name.original + "_type", type_name  + "_class");
         }
-        llvm::AllocaInst *Alloca = blockAllocation(parent, statement->m_name.original,getType(statement->m_type));
-        m_environment->define(std::string(statement->m_name.original), Alloca);
+        llvm::AllocaInst *variable = blockAllocation(parent, statement->m_name.original, getType(statement->m_type));
+        m_environment->define(std::string(statement->m_name.original), variable);
         //initialize
         if (statement->m_initializer != nullptr) {
             llvm::Value *value = std::get<llvm::Value *>(eval(statement->m_initializer));
             //implicit conversion
-            if(Alloca->getAllocatedType()->isFloatTy()){
+            if(variable->getAllocatedType()->isFloatTy()){
                 value = toFloat(value);
             }
-            m_builder.CreateStore(value, Alloca);
+            m_builder.CreateStore(value, variable);
+        }else if(variable->getType()->getNonOpaquePointerElementType()->isStructTy()){
+            m_error_handler->warning(statement->m_line,"Uninitialized class contains garbage. assign it to a class() to call constructors! Or you will face the wrath of weird destructors!");
         }
         return null_object();
     }
@@ -489,9 +501,6 @@ public:
             //eg string("aaa").print() means the last name is string
             class_name = m_last_variable_name + "_class";
         }
-
-
-
         //get index
         object index_obj = m_environment->getValue(class_name + "_" + expression->m_name.original);
         int index;
@@ -507,16 +516,16 @@ public:
         std::vector<llvm::Value *> indices = getIndices(index);
         //get class type
         object class_type = m_environment->getValue(class_name);
-            if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
-                //get member pointer
-                llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, class_object_pointer, indices,expression->m_name.original);
-                //set variables for next get expression
-                m_last_pointer = (llvm::AllocaInst *) member_ptr;
-                m_last_variable_name = class_name + "_" + expression->m_name.original;
-                m_last_class = class_object_pointer;
-                //return value
-                return (llvm::Value *) m_builder.CreateLoad(((llvm::StructType *) *class_def)->getElementType(index),member_ptr, expression->m_name.original + "_loaded");
-            }
+        if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
+            //get member pointer
+            llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, class_object_pointer, indices,expression->m_name.original);
+            //set variables for next get expression
+            m_last_pointer = (llvm::AllocaInst *) member_ptr;
+            m_last_variable_name = class_name + "_" + expression->m_name.original;
+            m_last_class = class_object_pointer;
+            //return value
+            return (llvm::Value *) m_builder.CreateLoad(((llvm::StructType *) *class_def)->getElementType(index),member_ptr, expression->m_name.original + "_loaded");
+        }
         return null_object();
     }
     object visitSetExpression(Set *expression) {
@@ -563,7 +572,7 @@ public:
     object visitCallExpression(Call *expression) {
         object callee_temp = eval(expression->m_callee);
 
-    //get arguments
+        //get arguments
         std::string overload = "";
         std::vector<llvm::Value *> arguments;
         for (Expression *argument: expression->m_arguments) {
@@ -623,12 +632,12 @@ public:
                 to_return = llvm::CallInst::CreateMalloc(m_builder.GetInsertPoint()->getPrevNode(),llvm::Type::getInt32Ty(m_context),variable->getType(), AllocSize,
                                                          array_size, nullptr);
                 //remove temporary instruction
-                  to_move->eraseFromParent();
+                to_move->eraseFromParent();
 
             }
             m_builder.CreateStore(variable,(llvm::Value*)to_return);
 
-                return  (llvm::Value*)to_return;
+            return  (llvm::Value*)to_return;
         }
 
         std::string name = callee.name + overload;
@@ -679,13 +688,14 @@ public:
                 //get class type
                 object class_type =  m_environment->getValue(class_name);
                 if (llvm::Type **class_def = std::get_if<llvm::Type *>(&class_type)) {
-                        llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, this_pointer, indices,expression->m_name.original);
-                        //set variables
-                        m_last_pointer = (llvm::AllocaInst *) member_ptr;
-                        m_last_variable_name = class_name + "_" + expression->m_name.original;
-                        m_last_class = this_pointer;
-                        //return load
-                        return (llvm::Value *) m_builder.CreateLoad(((llvm::StructType *) *class_def)->getElementType(index),member_ptr, expression->m_name.original + "_loaded");
+                    llvm::Value *member_ptr = m_builder.CreateGEP(*class_def, this_pointer, indices,expression->m_name.original);
+                    //set variables
+                    m_last_pointer = (llvm::AllocaInst *) member_ptr;
+
+                    m_last_variable_name = class_name + "_" + expression->m_name.original;
+                    m_last_class = this_pointer;
+                    //return load
+                    return (llvm::Value *) m_builder.CreateLoad(((llvm::StructType *) *class_def)->getElementType(index),member_ptr, expression->m_name.original + "_loaded");
                 }
             }
             //check if member function
@@ -722,9 +732,20 @@ public:
     }
 
     object visitAssignExpression(Assign *expression) {
-        llvm::Value *value = std::get<llvm::Value *>(eval(expression->m_value));
+       //get assign value
+        llvm::Value *value;
+        if(!expression->m_destroy){
+          value = std::get<llvm::Value *>(eval(expression->m_value));
+        }
+        //get variable
         llvm::Value* in = std::get<llvm::Value*>(expression->m_variable->accept(this));
         llvm::Value *variable = m_last_pointer;
+        //if this is marked as a destroy, then destroy
+        //Assign doubles as a destroy statement for class members
+        if(expression->m_destroy){
+            destruct(m_last_pointer);
+            return null_object();
+        }
         //implicit conversion
         if(in->getType()->isFloatTy()){
             value = toFloat(value);
@@ -756,32 +777,26 @@ public:
     object visitMemoryExpression(Memory *expression){
         llvm::Value *variable = std::get<llvm::Value *>(eval(expression->m_right));
         if(expression->m_type == NEW){
-           //get size
+            //get size
             llvm::Constant* AllocSize =   llvm::ConstantExpr::getSizeOf(variable->getType());
             //get pointer size 32 bits
             AllocSize = llvm::ConstantExpr::getTruncOrBitCast(AllocSize, llvm::Type::getInt32Ty(m_context));
             //temporary instruction to trick the evil llvm into  thinking its putting its stuff before
             llvm::Instruction* to_move =  m_builder.CreateAlloca(variable->getType(), nullptr);
-          llvm::Instruction* to_return = llvm::CallInst::CreateMalloc(m_builder.GetInsertPoint()->getPrevNonDebugInstruction(),llvm::Type::getInt32Ty(m_context),variable->getType(), AllocSize,
-                                              nullptr, nullptr);
+            llvm::Instruction* to_return = llvm::CallInst::CreateMalloc(m_builder.GetInsertPoint()->getPrevNonDebugInstruction(),llvm::Type::getInt32Ty(m_context),variable->getType(), AllocSize,
+                                                                        nullptr, nullptr);
             to_move->eraseFromParent();
-          m_builder.CreateStore(variable,(llvm::Value*)to_return);
+            m_builder.CreateStore(variable,(llvm::Value*)to_return);
             return (llvm::Value*)to_return;
         }
         //must be a delete
         //call destructor
-        if(variable->getType()->getContainedType(0)->isStructTy()) {
-            llvm::Function *destructor = m_module.getFunction(
-                    variable->getType()->getContainedType(0)->getStructName().str() + "_class_" + "destruct");
-            if (destructor) {
-                m_builder.CreateCall(destructor, {variable});
-            }
-        }
+        destruct((llvm::AllocaInst*)variable);
 
 
         llvm::Instruction* free = llvm::CallInst::CreateFree(variable,m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
         //move to correct spot, curse you llvm
-     free->moveAfter(m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
+        free->moveAfter(m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
 
         return null_object() ;
     }
@@ -1015,18 +1030,35 @@ private:
             //check if pointer exists to variable
             if( llvm::AllocaInst** val = std::get_if< llvm::AllocaInst* >(&element.second)){
                 llvm::AllocaInst* variable = *val;
-                if(variable->getAllocatedType()->isStructTy()) {
-                    llvm::Function *destructor = m_module.getFunction(
-                            variable->getAllocatedType()->getStructName().str() + "_class_" + "destruct");
-                    if (destructor) {
-                        m_builder.CreateCall(destructor, {variable});
-                    }
-                }
-
+                    destruct(variable);
             }
 
         }
     }
+    //destruct an object
+    void destruct(llvm::AllocaInst* variable){
+            llvm::Type* type = variable->getType()->getNonOpaquePointerElementType();
+            //check if class
+            if(type->isStructTy()) {
+
+                //call default constructor
+                llvm::Function *default_destructor = m_module.getFunction(
+                        type->getStructName().str() + "_class_" + "destructor_default");
+                if (default_destructor) {
+                    m_builder.CreateCall(default_destructor, {variable});
+                }
+                //call specified destructor
+                llvm::Function *destructor = m_module.getFunction(
+                        type->getStructName().str() + "_class_" + "destruct");
+                if (destructor) {
+                    m_builder.CreateCall(destructor, {variable});
+                }
+
+            }
+
+
+    }
+
     //create alloca at entry block. This is for easier analysis and optimization of code by llvm.
     llvm::AllocaInst *blockAllocation(llvm::Function *function, const std::string &variable_name, llvm::Type *type) {
         llvm::IRBuilder<> block(&function->getEntryBlock(),function->getEntryBlock().begin());
@@ -1046,7 +1078,7 @@ private:
         std::string type_name = type.original;
         bool ptr = false;
         if(type_name.find("_ptr") != std::string::npos) {
-                ptr = true;
+            ptr = true;
             type_name.erase(type_name.length()-4);
         }
 
@@ -1078,7 +1110,7 @@ private:
         return llvm::Type::getFloatTy(m_context);
     }
     //get name from type
-     std::string getTypeName(llvm::Type* type) {
+    std::string getTypeName(llvm::Type* type) {
         //primitives
         if(type->isFloatTy()){
             return "float";
@@ -1115,10 +1147,6 @@ private:
         m_error_handler->error("Unsupported conversion: " + not_float->getName().str());
         return not_float;
     }
-
-
-
-
 
 };
 #endif //PROGRAM_IRCOMPILER_HPP

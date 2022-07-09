@@ -429,18 +429,19 @@ m_name = name;
 
     }
     //create assign from variable statement for members
-    Assign(VariableStatement* statement){
+    Assign(VariableStatement* statement, bool destroy = false){
         m_variable = new Variable(Token(statement->m_name),0,false);
         m_name = statement->m_name.original;
         m_value = statement->m_initializer;
         m_line = statement->m_line;
+        m_destroy = destroy;
 
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitAssignExpression(this);
     }
-
+bool m_destroy = false;
 std::string m_name;
    Expression* m_variable;
     Expression* m_value;
