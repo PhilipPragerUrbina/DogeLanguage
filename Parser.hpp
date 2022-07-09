@@ -5,6 +5,7 @@
 #ifndef PROGRAM_PARSER_HPP
 #define PROGRAM_PARSER_HPP
 
+#include <map>
 #include "Expression.hpp"
 
 //convenience type
@@ -52,6 +53,17 @@ private:
     }
     //just see if current token of type
     bool check(TokenType type){
+        //template replace type
+        if(m_tokens[m_current].original == "type" && m_template_type != ""){
+            m_tokens[m_current].original = m_template_type;
+            m_tokens[m_current].value = m_template_type;
+        }
+        //template replace class name, for constructor
+        if(m_tokens[m_current].original == m_template_name && m_template_class_name != ""){
+            m_tokens[m_current].original = m_template_class_name;
+            m_tokens[m_current].value = m_template_class_name;
+        }
+
         if(m_tokens[m_current].type == END){return false;}
         return m_tokens[m_current].type == type;
     }
@@ -83,7 +95,10 @@ private:
 
         if(match({EXTERN})){   if(match({VAR})){return externDeclaration(m_tokens[m_current-1]);}}
         if(match({CONST})){   if(match({VAR})){return variableDeclaration(true,m_tokens[m_current-1]);}}
-        if(match({CLASS})){return classDeclaration();}
+        if(match({CLASS})){
+            return classDeclaration();
+        }
+        if(match({USE})){return templateStatement();}
         return statement();
     }
 
@@ -129,14 +144,67 @@ private:
         m_error_handler->error("Expected imports or includes.");
         return nullptr;
     }
+    //keep track of templates
+std::map<std::string ,int > m_templates;
+    //substitute type
+    std::string m_template_type = "";
+    //substitute class name
+    std::string m_template_class_name = "";
+    //original template name
+    std::string m_template_name = "";
+
+    Statement* templateStatement(){
+        //get info
+        Token template_name = consume(IDENTIFIER, "Expected template name.");
+        consume(USE, "Expected as after template name.");
+        Token class_name =  consume(IDENTIFIER, "Expected class name.");
+        consume(USE, "Expected using after class name.");
+        Token type_name =  consume(VAR, "Expected type name.");
+        consume(SEMICOLON, "Expected ; after template statement.");
+        //check if template exists
+        if(m_templates.find(template_name.original)!= m_templates.end()){
+            //set position
+            int last_position = m_current;
+            m_current = m_templates[template_name.original];
+            //set names
+            m_in_class = class_name.original;
+            m_template_type = type_name.original;
+           m_template_class_name =class_name.original;
+            m_template_name = template_name.original;
+            //create class
+            statementList body = block();
+            //revert
+            m_in_class = "";
+            m_template_type = "";
+            m_current = last_position;
+            m_template_class_name = "";
+            m_template_name = "";
+            //return new template class
+            return new ClassStatement(class_name, body, getLine());
+        }
+        m_error_handler->error(getLine(),"Template not found.");
+        return nullptr;
+
+    }
 
     //class cake{}
     Statement* classDeclaration(){
+    bool is_template = match({TEMPLATE});
+
         Token name = consume(IDENTIFIER, "Expected class m_visitor_name.");
         consume(LEFT_BRACE, "Expected { class m_visitor_name.");
+        //if template just save position, go through the body and return
+        if(is_template){
+            m_templates[name.original] = m_current;
+            m_in_class = name.original;
+            block();
+            m_in_class = "";
+            return new EmptyStatement();
+        }
         m_in_class = name.original;
         statementList body = block();
         m_in_class = "";
+
         return new ClassStatement(name,body, getLine());
     }
 

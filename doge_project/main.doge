@@ -1,3 +1,4 @@
+//todo make array class that destructs and constructs and contains length
 #import SL;
 
 
@@ -17,14 +18,39 @@ void destruct(){
 
 }
 
+class template t{
+type store;
+void t(type thing){
+store = thing;
+}
+
+
+type doThing(type other){
+return store + other * store;
+}
+
+
+}
+use t as numberT using int;
 //main function
 int main(){
+
+
+
+numberT foo =  numberT(5);
+print(foo.doThing(2));
+
+
+
+/*
 b fee = b();
 b_ptr whee =  new b();
 delete whee;
 
 
-
+const int c = 3;
+print(c);
+*/
 
 /*
 print("size: \n");

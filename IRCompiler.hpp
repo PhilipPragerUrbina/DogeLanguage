@@ -732,10 +732,10 @@ public:
     }
 
     object visitAssignExpression(Assign *expression) {
-       //get assign value
+        //get assign value
         llvm::Value *value;
         if(!expression->m_destroy){
-          value = std::get<llvm::Value *>(eval(expression->m_value));
+            value = std::get<llvm::Value *>(eval(expression->m_value));
         }
         //get variable
         llvm::Value* in = std::get<llvm::Value*>(expression->m_variable->accept(this));
@@ -1030,31 +1030,31 @@ private:
             //check if pointer exists to variable
             if( llvm::AllocaInst** val = std::get_if< llvm::AllocaInst* >(&element.second)){
                 llvm::AllocaInst* variable = *val;
-                    destruct(variable);
+                destruct(variable);
             }
 
         }
     }
     //destruct an object
     void destruct(llvm::AllocaInst* variable){
-            llvm::Type* type = variable->getType()->getNonOpaquePointerElementType();
-            //check if class
-            if(type->isStructTy()) {
+        llvm::Type* type = variable->getType()->getNonOpaquePointerElementType();
+        //check if class
+        if(type->isStructTy()) {
 
-                //call default constructor
-                llvm::Function *default_destructor = m_module.getFunction(
-                        type->getStructName().str() + "_class_" + "destructor_default");
-                if (default_destructor) {
-                    m_builder.CreateCall(default_destructor, {variable});
-                }
-                //call specified destructor
-                llvm::Function *destructor = m_module.getFunction(
-                        type->getStructName().str() + "_class_" + "destruct");
-                if (destructor) {
-                    m_builder.CreateCall(destructor, {variable});
-                }
-
+            //call default constructor
+            llvm::Function *default_destructor = m_module.getFunction(
+                    type->getStructName().str() + "_class_" + "destructor_default");
+            if (default_destructor) {
+                m_builder.CreateCall(default_destructor, {variable});
             }
+            //call specified destructor
+            llvm::Function *destructor = m_module.getFunction(
+                    type->getStructName().str() + "_class_" + "destruct");
+            if (destructor) {
+                m_builder.CreateCall(destructor, {variable});
+            }
+
+        }
 
 
     }

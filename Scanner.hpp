@@ -85,7 +85,7 @@ public:
 
 enum TokenType {
     //single tokens
-    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,LEFT_BRACKET,RIGHT_BRACKET,
+    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,LEFT_BRACKET,RIGHT_BRACKET,TEMPLATE,USE,
     COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR,
     //two char tokens
     BANG, BANG_EQUAL,
@@ -154,12 +154,18 @@ public:
         m_keywords[ "super" ] = SUPER;
         m_keywords[ "const" ] = CONST;
         m_keywords[ "true" ] = TRUE;
+        m_keywords[ "template" ] = TEMPLATE;
+        m_keywords[ "use" ] = USE;
+        m_keywords[ "as" ] = USE;
+        m_keywords[ "using" ] = USE;
+
         //types
         m_keywords[ "void" ] = VAR;
         m_keywords[ "bool" ] = VAR;
         m_keywords[ "int" ] = VAR;
         m_keywords[ "float" ] = VAR;
         m_keywords[ "chars" ] = VAR;
+        m_keywords[ "type" ] = VAR;
         m_keywords[ "new" ] = NEW;
         m_keywords[ "delete" ] = DELETE;
         m_keywords[ "bool_ptr" ] = VAR;
