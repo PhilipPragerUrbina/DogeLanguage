@@ -138,6 +138,18 @@ int main(int argc, char **argv) {
     compiler.compile(statements, external_files, &error_handler,source_filename);
     //check for errors
     if (error_handler.hasErrors()) {return 1;}
+    //show warnings
+    if(error_handler.hasWarnings()){
+        Color::start(CYAN);
+        std::cout << "\n" << error_handler.getWarningNumber() << " warnings! Continue anyway? y/n \n";
+        Color::end();
+        std::string in;
+        std::cin >> in;
+        if(in != "y"){
+            return 1;
+        }
+
+    }
     //optimize ir
     if(!optimize_disable_option->is_set()){
         std::cout << "\nOptimizing... \n";
