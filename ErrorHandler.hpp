@@ -63,6 +63,9 @@ public:
     bool hasErrors(){
         return m_error_number > 0;
     }
+    bool hasWarnings(){
+        return m_warning_number > 0;
+    }
 private:
     int m_error_number = 0;
     int m_warning_number = 0;

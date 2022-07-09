@@ -33,6 +33,13 @@ public:
         }
         return true;
     }
+    //define or assign
+    void set(std::string name, object value, bool constant = false){
+
+            m_values[name] = value;
+            m_constants[name] = constant;
+
+    }
     //return true if defined
     bool assign(std::string name, object value){
         if (m_values.find(name) == m_values.end() ) {
