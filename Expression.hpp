@@ -32,6 +32,7 @@ class ImportStatement;
 class IncludeStatement;
 class Memory;
 class Brackets;
+class EmptyStatement;
 
 //using visitor pattern
 class Visitor {
@@ -60,6 +61,7 @@ public:
     virtual object visitSetExpression(Set* expression){std::cout << m_visitor_name << " visitSetExpression " << " not implemented \n";return 0;}
     virtual object visitBracketsExpression(Brackets* expression){std::cout << m_visitor_name << " visitBracketsExpression " << " not implemented \n";return 0;}
     virtual object visitMemoryExpression(Memory* expression){std::cout << m_visitor_name << " visitMemoryExpression " << " not implemented \n";return 0;}
+    virtual object visitEmptyStatement(EmptyStatement* statement){return 0;};
 
 };
 
@@ -279,6 +281,19 @@ public:
 
     Expression* m_value;
     Token m_keyword;
+};
+
+class EmptyStatement : public Statement {
+public:
+    EmptyStatement() {
+
+    }
+
+    object accept(Visitor* visitor) {
+        return visitor->visitEmptyStatement(this);
+    }
+
+
 };
 class FunctionStatement : public Statement {
 public:

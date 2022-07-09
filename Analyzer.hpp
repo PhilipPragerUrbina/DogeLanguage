@@ -81,7 +81,7 @@ public:
         Callable function =  Callable(statement->m_parameters.size(), nullptr,statement);
         std::string overload = "";
         for (int i = 0; i < statement->m_parameters.size(); i++) {
-                overload = overload + "_" + statement->m_parameters[i]->m_type.original;
+            overload = overload + "_" + statement->m_parameters[i]->m_type.original;
 
         }
         if(statement->m_class_name != ""){
@@ -123,9 +123,9 @@ public:
     }
     object visitIfStatement(IfStatement* statement){
         evalS(statement->m_condition);
-         statement->m_then_branch->accept(this);
+        statement->m_then_branch->accept(this);
         if(statement->m_else_branch != nullptr ){
-           statement->m_else_branch->accept(this);
+            statement->m_else_branch->accept(this);
         }
         //make sure there is a return for every branch
         m_return  = "";
@@ -203,9 +203,9 @@ public:
 
         if(Callable* function = std::get_if<Callable>(&callee_obj)) {
 
-                if(function->m_declaration->m_class_name!= "" && m_member){
+            if(function->m_declaration->m_class_name!= "" && m_member){
 
-                        overload = overload + "_" + function->m_declaration->m_class_name+"_";}
+                overload = overload + "_" + function->m_declaration->m_class_name+"_";}
             m_member = false;
         }
 
@@ -240,16 +240,16 @@ public:
 
                 if(type != function->m_declaration->m_parameters[argument_number]->m_type.original){
                     m_error_handler->error(expression->m_line,"Argument " + std::to_string(argument_number) + " is " +
-                    function->m_declaration->m_parameters[argument_number]->m_type.original + " not " + type);
+                                                              function->m_declaration->m_parameters[argument_number]->m_type.original + " not " + type);
                 }
                 argument_number++;
             }
             if (argument_number != function->m_argument_number) {
                 m_error_handler->error("Not enough function arguments: " + std::to_string(argument_number) + " expected: " +
                                        std::to_string(function->m_argument_number));}
-        if(class_return != ""){
-            return class_return; //return constructor type
-        }
+            if(class_return != ""){
+                return class_return; //return constructor type
+            }
             return function->m_declaration->m_type.original;
         }
 
@@ -468,7 +468,7 @@ public:
                 if(left == "float" && right == "float"){
                     return std::string("float");
                 }
-                 if(left == "int" && right == "int"){
+                if(left == "int" && right == "int"){
                     return std::string("int");
                 }
                 else{
