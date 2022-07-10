@@ -184,6 +184,7 @@ public:
 
     }
 
+  std::string m_last_class = "";
 
     //expressions
     object visitCallExpression(Call* expression) {
@@ -194,19 +195,22 @@ public:
         object callee_obj = m_environment->getValue(callee);
 
 
-
+    bool check_all = true;
         std::string overload = "";
+        std::string old_overload = "";
         for (int i = 0; i < expression->m_arguments.size(); i++) {
             overload = overload + "_" + evalS(expression->m_arguments[i]);
 
         }
+        old_overload = overload;
+        try_again:
 
+        if(m_last_class != "" && !check_all) {
+                overload = overload + "_" + m_last_class+"_";
+        }
         if(Callable* function = std::get_if<Callable>(&callee_obj)) {
-
-            if(function->m_declaration->m_class_name!= "" && m_member){
-
+            if(function->m_declaration->m_class_name!= "" && check_all){
                 overload = overload + "_" + function->m_declaration->m_class_name+"_";}
-            m_member = false;
         }
 
         //if class check constructor
@@ -228,7 +232,6 @@ public:
 
 
         if(Callable* function = std::get_if<Callable>(&callee_obj)){
-
             int argument_number = 0;
 
             for (Expression* argument : expression->m_arguments) {
@@ -252,6 +255,23 @@ public:
             }
             return function->m_declaration->m_type.original;
         }
+
+        //try again to see if function is not member variable
+        if(m_last_class != "" && check_all == false){
+            m_last_class = "";
+            overload = old_overload;
+            goto try_again;
+        }
+        //check if constructor
+        if(check_all == true){
+            overload = old_overload;
+            check_all = false;
+            goto try_again;
+        }
+
+
+
+
 
 
 
@@ -288,6 +308,8 @@ public:
         }else if(expression->m_name.original == "local_array"){
             return std::string ("local_array");
         }
+
+
         object value = m_environment->getValue(expression->m_name.original);
         if (std::get_if<null_object>(&value)) {
             m_error_handler->error(expression->m_line, "Reference undefined: " + expression->m_name.original);
@@ -322,18 +344,19 @@ public:
         m_error_handler->error(expression->m_line, "Cannot delete non pointer.");
     }
     //track if call is part of a class
-    bool m_member = false;
+
     object visitGetExpression(Get *expression) {
-        m_member = true;
+
         std::string value = evalS(expression->m_object);
 
         object class_ = m_environment->getValue(value);
+
         if (Class* obj = std::get_if<Class>(&class_)) {
             object out =  obj->m_environment->getValue(expression->m_name.original);
             if(!std::get_if<std::string>(&out)){
                 m_error_handler->error(expression->m_line,"Unknown member.");
             }
-
+            m_last_class = obj->m_name;
             return out;
         }
         m_error_handler->error(expression->m_line,"Cannot read property of non object.");

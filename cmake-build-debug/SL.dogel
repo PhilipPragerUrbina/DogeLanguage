@@ -55,5 +55,29 @@ float floatIn(){
     return toFloat(charsIn());
 }
 
+class template Arr{
+int m_length = 0;
+type_ptr m_array;
 
+void Arr(int length){
+m_length = length;
+type t = type();
+m_array = array(t, m_length);
+}
+type brackets(int i){
+return m_array[i];
+}
+void fill(type init){
+for(int i = 0; i < m_length; i++){
+m_array[i] = init;
+}
+}
+
+void destruct(){
+
+delete m_array;
+}
+
+
+}
 

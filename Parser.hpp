@@ -15,12 +15,48 @@ class Parser {
 public:
     std::string link_directory = "";
     //create parser from tokens
-    Parser(  std::vector<Token> tokens, ErrorHandler* error_handler, std::string file){
+    Parser(  std::vector<Token> tokens, ErrorHandler* error_handler, std::string file, std::map<std::string ,std::vector<Token >>* templates,
+    std::vector<ClassStatement*>* templates_to_resolve){
         m_error_handler = error_handler;
         m_error_handler->m_name = "Parsing";
         m_error_handler->m_file = file;
         m_tokens = tokens;
+      m_templates_to_resolve=  templates_to_resolve;
+      m_templates = templates;
     }
+    Parser(std::map<std::string ,std::vector<Token >>* templates,
+           std::vector<ClassStatement*> templates_to_resolve){
+        m_templates = templates;
+        for(ClassStatement* statement : templates_to_resolve){
+            //check if template exists
+            if(m_templates->find(statement->m_template_name)!= m_templates->end()){
+                //set position
+                int last_position = m_current;
+                std::vector<Token > last_tokens = m_tokens;
+                m_current = 0;
+                m_tokens =  m_templates->at(statement->m_template_name);
+                //set names
+                m_in_class = statement->m_name.original;
+                m_template_type = statement->m_template_type;
+                m_template_class_name =statement->m_name.original;
+                m_template_name = statement->m_template_name;
+                //create class
+                statementList body = block();
+                //revert
+                m_in_class = "";
+                m_template_type = "";
+                m_current = last_position;
+                m_template_class_name = "";
+                m_template_name = "";
+                m_tokens = last_tokens;
+                statement->m_members = body;
+            }else{
+                m_error_handler->error(statement->m_line,"template not found: " + statement->m_template_name);
+                return;
+            }
+        }
+    }
+
     //parse the tokens and return the parent node of the AST
     statementList parse() {
         statementList statements;
@@ -58,6 +94,11 @@ private:
             m_tokens[m_current].original = m_template_type;
             m_tokens[m_current].value = m_template_type;
         }
+        if(m_tokens[m_current].original == "type_ptr" && m_template_type != ""){
+            m_tokens[m_current].original = m_template_type + "_ptr";
+            m_tokens[m_current].value = m_template_type + "_ptr";
+        }
+
         //template replace class name, for constructor
         if(m_tokens[m_current].original == m_template_name && m_template_class_name != ""){
             m_tokens[m_current].original = m_template_class_name;
@@ -145,7 +186,9 @@ private:
         return nullptr;
     }
     //keep track of templates
-std::map<std::string ,int > m_templates;
+    std::map<std::string ,std::vector<Token >>* m_templates;
+    std::vector<ClassStatement*>* m_templates_to_resolve;
+
     //substitute type
     std::string m_template_type = "";
     //substitute class name
@@ -153,19 +196,23 @@ std::map<std::string ,int > m_templates;
     //original template name
     std::string m_template_name = "";
 
+    //todo make list of unfinished class statements, then resolve them at the end using a shared list of template bodies
     Statement* templateStatement(){
         //get info
         Token template_name = consume(IDENTIFIER, "Expected template name.");
         consume(USE, "Expected as after template name.");
         Token class_name =  consume(IDENTIFIER, "Expected class name.");
         consume(USE, "Expected using after class name.");
-        Token type_name =  consume(VAR, "Expected type name.");
+        match({VAR, IDENTIFIER});
+        Token type_name =  m_tokens[m_current-1];
         consume(SEMICOLON, "Expected ; after template statement.");
         //check if template exists
-        if(m_templates.find(template_name.original)!= m_templates.end()){
+        if(m_templates->find(template_name.original)!= m_templates->end()){
             //set position
             int last_position = m_current;
-            m_current = m_templates[template_name.original];
+            std::vector<Token > last_tokens = m_tokens;
+            m_current = 0;
+            m_tokens =  m_templates->at(template_name.original);
             //set names
             m_in_class = class_name.original;
             m_template_type = type_name.original;
@@ -179,11 +226,16 @@ std::map<std::string ,int > m_templates;
             m_current = last_position;
             m_template_class_name = "";
             m_template_name = "";
+            m_tokens = last_tokens;
             //return new template class
             return new ClassStatement(class_name, body, getLine());
+        }else{
+            //resolve later, may not be in same file
+            ClassStatement* to_return = new ClassStatement(class_name,{},getLine(), template_name.original, type_name.original);
+            m_templates_to_resolve->push_back(to_return);
+            return  to_return;
         }
-        m_error_handler->error(getLine(),"Template not found.");
-        return nullptr;
+
 
     }
 
@@ -195,10 +247,14 @@ std::map<std::string ,int > m_templates;
         consume(LEFT_BRACE, "Expected { class m_visitor_name.");
         //if template just save position, go through the body and return
         if(is_template){
-            m_templates[name.original] = m_current;
+            std::vector<Token>::const_iterator first = m_tokens.begin() + m_current;
+
+
             m_in_class = name.original;
             block();
             m_in_class = "";
+            std::vector<Token>::const_iterator last = m_tokens.begin() + m_current;
+            m_templates->insert_or_assign(name.original,std::vector<Token>(first,last));
             return new EmptyStatement();
         }
         m_in_class = name.original;
@@ -440,6 +496,9 @@ std::map<std::string ,int > m_templates;
         }else if(match({DELETE})){
             Expression* right = callExpression();
             return new Memory(right, DELETE, getLine());
+        }else if(match({DESTRUCT})){
+            Expression* right = callExpression();
+            return new Memory(right, DESTRUCT, getLine());
         }
         return callExpression();
     }

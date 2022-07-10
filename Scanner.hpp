@@ -85,7 +85,7 @@ public:
 
 enum TokenType {
     //single tokens
-    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,LEFT_BRACKET,RIGHT_BRACKET,TEMPLATE,USE,
+    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,LEFT_BRACKET,RIGHT_BRACKET,TEMPLATE,USE,DESTRUCT,
     COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR,
     //two char tokens
     BANG, BANG_EQUAL,
@@ -165,14 +165,15 @@ public:
         m_keywords[ "int" ] = VAR;
         m_keywords[ "float" ] = VAR;
         m_keywords[ "chars" ] = VAR;
-        m_keywords[ "type" ] = VAR;
+        m_keywords[ "type" ] = IDENTIFIER;
         m_keywords[ "new" ] = NEW;
         m_keywords[ "delete" ] = DELETE;
+        m_keywords[ "destroy" ] = DESTRUCT;
         m_keywords[ "bool_ptr" ] = VAR;
         m_keywords[ "int_ptr" ] = VAR;
         m_keywords[ "float_ptr" ] = VAR;
         m_keywords[ "chars_ptr" ] = VAR;
-
+        m_keywords[ "type_ptr" ] = VAR;
     }
 
     //scan text to create tokens

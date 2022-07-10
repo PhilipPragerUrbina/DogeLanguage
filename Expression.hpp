@@ -317,16 +317,20 @@ public:
 };
 class ClassStatement : public Statement {
 public:
-    ClassStatement(Token name, std::vector<Statement*> members, int line) {
+    ClassStatement(Token name, std::vector<Statement*> members, int line, std::string template_name = "", std::string template_type = "") {
         m_name = name;
         m_members = members;
         m_line = line;
+        m_template_name =template_name;
+        m_template_type =template_type;
     }
 
     object accept(Visitor* visitor) {
         return visitor->visitClassStatement(this);
     }
     Token m_name;
+    std::string m_template_name;
+    std::string m_template_type;
     std::vector<Statement*> m_members;
 };
 

@@ -793,10 +793,14 @@ public:
         //call destructor
         destruct((llvm::AllocaInst*)variable);
 
+if(expression->m_type != DESTRUCT){
+    llvm::Instruction* free = llvm::CallInst::CreateFree(variable,m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
+    //move to correct spot, curse you llvm
+    free->moveAfter(m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
+}
 
-        llvm::Instruction* free = llvm::CallInst::CreateFree(variable,m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
-        //move to correct spot, curse you llvm
-        free->moveAfter(m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
+
+
 
         return null_object() ;
     }
@@ -828,15 +832,18 @@ public:
     };
     object visitBinaryExpression(Binary *expression) {
         //get values
+        //TODO fix pointer skipping
         llvm::Value *right = std::get<llvm::Value *>(eval(expression->m_right));
         llvm::Value *left = std::get<llvm::Value *>(eval(expression->m_left));
+        llvm::AllocaInst* last_ptr = m_last_pointer;
+
         switch (expression->m_operator_.type) {
             case BANG_EQUAL:
                 if (left->getType()->isFloatTy()) {
                     return m_builder.CreateFCmpUNE(left, toFloat(right), "not_equal_floats");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_bangEqual_" +getTypeName(right->getType()));
-                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "bangEqual_overload");}
+                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,last_ptr}, "bangEqual_overload");}
                 }  else {
                     return m_builder.CreateICmpNE(left, right, "not_equal_ints");
                 }
@@ -845,7 +852,7 @@ public:
                     return m_builder.CreateFCmpUEQ(left, toFloat(right), "equal_floats");
                 } else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_equalEqual_" +getTypeName(right->getType()));
-                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "equalEqual_overload");}
+                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,last_ptr}, "equalEqual_overload");}
                 } else {
                     return m_builder.CreateICmpEQ(left, right, "equal_ints");
                 }
@@ -854,7 +861,7 @@ public:
                     return m_builder.CreateFCmpUGT(left, toFloat(right), "greater_floats");
                 } else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_greater_" +getTypeName(right->getType()));
-                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "greater_overload");}
+                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,last_ptr}, "greater_overload");}
                 } else {
                     return m_builder.CreateICmpUGT(left, right, "greater_ints");
                 }
@@ -863,7 +870,7 @@ public:
                     return m_builder.CreateFCmpUGE(left, toFloat(right), "greater_equal_floats");
                 } else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_greaterEqual_" +getTypeName(right->getType()));
-                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "greaterEqual_overload");}
+                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,last_ptr}, "greaterEqual_overload");}
                 } else {
                     return m_builder.CreateICmpUGE(left, right, "greater_equal_ints");
                 }
@@ -872,7 +879,7 @@ public:
                     return m_builder.CreateFCmpULT(left, toFloat(right), "less_floats");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_less_" +getTypeName(right->getType()));
-                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "less_overload");}
+                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,last_ptr}, "less_overload");}
                 }  else {
                     return m_builder.CreateICmpULT(left, right, "less_ints");
                 }
@@ -881,7 +888,7 @@ public:
                     return m_builder.CreateFCmpULE(left, toFloat(right), "less_equal_floats");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_lessEqual_" +getTypeName(right->getType()));
-                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "lessEqual_overload");}
+                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,last_ptr}, "lessEqual_overload");}
                 }  else {
                     return m_builder.CreateICmpULE(left, right, "less_equal_ints");
                 }
@@ -890,7 +897,7 @@ public:
                     return m_builder.CreateFSub(left, toFloat(right), "subtract_float");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_minus_" +getTypeName(right->getType()));
-                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "minus_overload");}
+                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,last_ptr}, "minus_overload");}
                 }  else {
                     return m_builder.CreateSub(left, right, "subtract_int");
                 }
@@ -899,7 +906,7 @@ public:
                     return m_builder.CreateFDiv(left, toFloat(right), "divide_float");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_slash_" +getTypeName(right->getType()));
-                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "slash_overload");}
+                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,last_ptr}, "slash_overload");}
                 }  else {
                     return m_builder.CreateUDiv(left, right, "divide_int");
                 }
@@ -908,7 +915,7 @@ public:
                     return m_builder.CreateFMul(left, toFloat(right), "multiply_float");
                 }else if(left->getType()->isStructTy()){
                     llvm::Function *callee_function = m_module.getFunction(left->getType()->getStructName().str() + "_class_star_" +getTypeName(right->getType()));
-                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer}, "star_overload");}
+                    if(callee_function){return (llvm::Value *) m_builder.CreateCall(callee_function, {right,last_ptr}, "star_overload");}
                 } else {
                     return m_builder.CreateMul(left, right, "multiply_int");
                 }
@@ -923,7 +930,7 @@ public:
                     if(callee_function){
                         //overload found
                         //this + right
-                        return (llvm::Value *) m_builder.CreateCall(callee_function, {right,m_last_pointer /* this needs to be pointer */}, "plus_overload");
+                        return (llvm::Value *) m_builder.CreateCall(callee_function, {right,last_ptr /* this needs to be pointer */}, "plus_overload");
                     }
                 }
         }

@@ -15,7 +15,8 @@
 #include <windows.h>
 #include <filesystem>
 bool getIncludes(Parser &parser, std::filesystem::file_time_type &source_modify_time, ErrorHandler &error_handler,
-                 std::map<std::string, statementList> &external_files);
+                 std::map<std::string, statementList> &external_files, std::map<std::string ,std::vector<Token >>* templates ,
+std::vector<ClassStatement*>* templates_to_resolve);
 
 int main(int argc, char **argv) {
 
@@ -79,6 +80,9 @@ int main(int argc, char **argv) {
         return 1;
     }
     auto source_modify_time = last_write_time(source_path);
+//templates
+    std::map<std::string ,std::vector<Token >> templates ;
+    std::vector<ClassStatement*> templates_to_resolve;
 
     //create error handler
     ErrorHandler error_handler;
@@ -95,12 +99,12 @@ int main(int argc, char **argv) {
     //get tokens
     std::vector<Token> tokens = scanner.getTokens();
     //parse code
-    Parser parser(tokens, &error_handler,source_filename);
+    Parser parser(tokens, &error_handler,source_filename,    &templates,&templates_to_resolve);
     statementList statements = parser.parse();
     if (error_handler.hasErrors()) { return 1; }
     std::cout << "\nFinding... \n";
     std::map<std::string, statementList> external_files;
-    if(!getIncludes(parser, source_modify_time, error_handler, external_files)){
+    if(!getIncludes(parser, source_modify_time, error_handler, external_files,&templates,&templates_to_resolve)){
         return 1;
     };
 
@@ -120,6 +124,9 @@ int main(int argc, char **argv) {
                 return 0;
             }
         }
+        //parse templates that are in other files
+        Parser(&templates,templates_to_resolve);
+
 
     //error check
     std::cout << "\nChecking... \n";
@@ -185,7 +192,8 @@ int main(int argc, char **argv) {
 }
 
 bool getIncludes(Parser &parser, std::filesystem::file_time_type &source_modify_time, ErrorHandler &error_handler,
-                 std::map<std::string, statementList> &external_files) {//get included files
+                 std::map<std::string, statementList> &external_files, std::map<std::string ,std::vector<Token >>* templates ,
+std::vector<ClassStatement*>* templates_to_resolve) {//get included files
     for (std::string include: parser.m_includes) {
         std::cout << "\nParsing: " + include +" \n";
         File file(include);
@@ -197,10 +205,10 @@ bool getIncludes(Parser &parser, std::filesystem::file_time_type &source_modify_
         }
         Scanner include_scanner(file.getData(), &error_handler,include);
         include_scanner.scan();
-        Parser include_parser(include_scanner.getTokens(), &error_handler,include);
+        Parser include_parser(include_scanner.getTokens(), &error_handler,include,templates,templates_to_resolve);
         external_files[include] = include_parser.parse();
         if (error_handler.hasErrors()) {  return false; }
-       if(!getIncludes(include_parser,source_modify_time,error_handler,external_files)){
+       if(!getIncludes(include_parser,source_modify_time,error_handler,external_files,templates,templates_to_resolve)){
            return false;
        }
     }
@@ -226,12 +234,12 @@ bool getIncludes(Parser &parser, std::filesystem::file_time_type &source_modify_
         }
         Scanner include_scanner(file->getData(), &error_handler,import);
         include_scanner.scan();
-        Parser include_parser(include_scanner.getTokens(), &error_handler,import);
+        Parser include_parser(include_scanner.getTokens(), &error_handler,import,templates,templates_to_resolve);
         include_parser.link_directory = link_directory;
         external_files[import] = include_parser.parse();
         if (error_handler.hasErrors()) {   return false; }
         delete file;
-        if(!getIncludes(include_parser,source_modify_time,error_handler,external_files)){
+        if(!getIncludes(include_parser,source_modify_time,error_handler,external_files,templates,templates_to_resolve)){
             return false;
         }
     }
