@@ -250,9 +250,12 @@ public:
                 }
                 //check for member initialization
                 if(member_var->m_initializer != nullptr){
-                    inits.push_back(new ExpressionStatement(new Assign(member_var),statement->m_line));
+                    inits.push_back(new ExpressionStatement(new Assign(member_var,false),statement->m_line));
                 }else if(!std::get_if<null_object>(&class_type)){
-                    m_error_handler->warning(member_var->m_line,"Uninitialized member class contains garbage. assign it to a class() to call constructors! Or you will face the wrath of weird destructors!");
+                    //member class is not initialized, run constructors by creating an initialization.
+                    member_var->m_initializer =    new Call(new Variable(member_var->m_type,statement->m_line,
+                                                                         false), Token(),{},statement->m_line);
+                    inits.push_back(new ExpressionStatement(new Assign(member_var,false),statement->m_line));
                 }
                 id++; //increment
             }
@@ -475,7 +478,18 @@ public:
             }
             m_builder.CreateStore(value, variable);
         }else if(variable->getType()->getNonOpaquePointerElementType()->isStructTy()){
-            m_error_handler->warning(statement->m_line,"Uninitialized class contains garbage. assign it to a class() to call constructors! Or you will face the wrath of weird destructors!");
+            //run member init
+            llvm::Function *init = m_module.getFunction(variable->getType()->getNonOpaquePointerElementType()->getStructName().str() + "_class_"+ "default");
+            //might not exist if empty. This is to avoid linking error if empty default constructor is optimized away
+            if(init){
+                m_builder.CreateCall(init, {variable});
+            }
+            //get and run constructor if available
+            llvm::Function *constructor = m_module.getFunction(variable->getType()->getNonOpaquePointerElementType()->getStructName().str() + "_class_" + variable->getType()->getNonOpaquePointerElementType()->getStructName().str());
+            if (constructor) {
+                m_builder.CreateCall(constructor, {variable});
+            }
+            m_last_pointer = variable;
         }
         return null_object();
     }
@@ -1048,17 +1062,18 @@ private:
         //check if class
         if(type->isStructTy()) {
 
-            //call default constructor
-            llvm::Function *default_destructor = m_module.getFunction(
-                    type->getStructName().str() + "_class_" + "destructor_default");
-            if (default_destructor) {
-                m_builder.CreateCall(default_destructor, {variable});
-            }
             //call specified destructor
             llvm::Function *destructor = m_module.getFunction(
                     type->getStructName().str() + "_class_" + "destruct");
             if (destructor) {
                 m_builder.CreateCall(destructor, {variable});
+            }
+
+            //call default constructor
+            llvm::Function *default_destructor = m_module.getFunction(
+                    type->getStructName().str() + "_class_" + "destructor_default");
+            if (default_destructor) {
+                m_builder.CreateCall(default_destructor, {variable});
             }
 
         }

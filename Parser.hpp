@@ -196,7 +196,7 @@ private:
     //original template name
     std::string m_template_name = "";
 
-    //todo make list of unfinished class statements, then resolve them at the end using a shared list of template bodies
+
     Statement* templateStatement(){
         //get info
         Token template_name = consume(IDENTIFIER, "Expected template name.");
