@@ -849,7 +849,9 @@ if(expression->m_type != DESTRUCT){
         //TODO fix pointer skipping
         llvm::Value *right = std::get<llvm::Value *>(eval(expression->m_right));
         llvm::Value *left = std::get<llvm::Value *>(eval(expression->m_left));
-        llvm::AllocaInst* last_ptr = m_last_pointer;
+        //get pointer to left using temporary variable. This is for chaining together many overloaded operators.
+        llvm::Value* last_ptr = m_builder.CreateAlloca(left->getType());
+        m_builder.CreateStore(left,last_ptr);
 
         switch (expression->m_operator_.type) {
             case BANG_EQUAL:

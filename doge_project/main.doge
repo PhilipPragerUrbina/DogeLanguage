@@ -1,20 +1,45 @@
 
 #import SL;
+class test2{
+void test2(){
+print("test2 is constructed");
+}
+void destruct(){
+print("test2 is destructed");
+}
 
 
+}
+
+
+
+class test{
+test2 whoo;
+void test(){
+print("test is constructed");
+}
+void destruct(){
+print("test is destructed");
+}
+
+
+}
 
 use Arr as list using string;
 //main function
 int main(){
 
-list things = list(500);
+list things = list(10);
 things.fill(string("wheee"));
 for(int i = 0; i < things.m_length; i++){
 string out = things[i];
-string e = string(i) + string(" e") + out +   "\n " ;
+string e = string(i) + string(" e ") + out +   " f " + " \n";
 print(e);
-
+print(5 + 5 + i + 6);
+print("\n");
 }
+
+
 
 
 return 0;
