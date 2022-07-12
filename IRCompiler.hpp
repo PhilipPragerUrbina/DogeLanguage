@@ -846,7 +846,6 @@ if(expression->m_type != DESTRUCT){
     };
     object visitBinaryExpression(Binary *expression) {
         //get values
-        //TODO fix pointer skipping
         llvm::Value *right = std::get<llvm::Value *>(eval(expression->m_right));
         llvm::Value *left = std::get<llvm::Value *>(eval(expression->m_left));
         //get pointer to left using temporary variable. This is for chaining together many overloaded operators.
