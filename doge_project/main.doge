@@ -38,7 +38,7 @@ return 1;
 list things = list(10);
 things.fill(69);
 for(int z = 0; z < 20; z++){
-
+print("\n start 1 \n");
 for(int x = 0; x < 20; x++){
 
 for(int y = 0; y < 10; y++){

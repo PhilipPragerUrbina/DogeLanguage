@@ -302,7 +302,7 @@ public:
         //get condition
         llvm::Value *condition = std::get<llvm::Value *>(eval(statement->m_condition));
         //merge
-
+        merge_block->moveAfter(m_builder.GetInsertBlock());
         m_builder.CreateCondBr(condition, loop_block, merge_block);
         m_builder.SetInsertPoint(merge_block);
 
