@@ -136,6 +136,7 @@ public:
         m_return  = "";
         return (std::string)"null";
     }
+
     object visitWhileStatement(WhileStatement* statement){
         evalS(statement->m_condition);
         m_loop_num++;
@@ -150,7 +151,7 @@ public:
     int m_loop_num = 0;
     object visitReturnStatement(ReturnStatement *statement){
 
-        if(statement->m_keyword.original == "break" || statement->m_keyword.original == "continue"){
+        if(statement->m_keyword.original == "break" ){
             if(m_loop_num <= 0){
                 m_error_handler->error(statement->m_line, statement->m_keyword.original  + " is not in loop.");
             }
@@ -433,8 +434,8 @@ public:
                 if(left == "float" && right == "float"){
                     return (std::string)"bool";
                 }
-                if(left == "int" && right == "bool"){
-                    return (std::string)"int";
+                if(left == "int" && right == "int"){
+                    return (std::string)"bool";
                 } else{
                     return checkOperator(left,right, "greater");
                 }

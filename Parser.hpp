@@ -300,7 +300,6 @@ private:
         if(match({IF})){return  ifStatement();}
         if(match({RETURN})){return  returnStatement();}
         if(match({BREAK})){return  loopStatement();}
-        if(match({CONTINUE})){return  loopStatement();}
         if(match({WHILE})){return  whileStatement();}
         if(match({FOR})){return  forStatement();}
         if (match({LEFT_BRACE})) return new BlockStatement(block(), getLine());

@@ -30,21 +30,47 @@ use Arr as list using int;
 int main(){
 
 test_ptr n = null test;
-if(n == null test){
+if(n != null test){
 print("wheeee");
 return 1;
 }
 
 list things = list(10);
 things.fill(69);
-for(int i = 0; i < things.m_length; i++){
-int out = things[i];
-string e = string(i) + string(" e ") + string(out) +   " f " + " \n";
-print(e);
-print(5 + 5 + i + 6);
+for(int z = 0; z < 20; z++){
+
+for(int x = 0; x < 20; x++){
+
+for(int y = 0; y < 10; y++){
+
+if(y == x){
+print("% ");
+break;
+
+}else{
+print("* ");
+}
+
+}
+if(x == 10){
+break;
+}
 print("\n");
 }
 
+print("\n wheeee whee \n");
+if(z == 3){
+print("\n heeeee \n");
+break;
+} else if(z == 2){
+print("\n hohohoh \n");
+if(n == null test){
+print("\n sus \n");
+break;
+}
+}
+print("\n Amogus \n");
+}
 
 
 

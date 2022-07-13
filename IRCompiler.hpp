@@ -288,15 +288,21 @@ public:
         llvm::Function *parent = m_builder.GetInsertBlock()->getParent();
         //create block
         llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(m_context, "loop", parent);
+        llvm::BasicBlock *merge_block =llvm::BasicBlock::Create(m_context, "after_loop", parent);
+        //set exit point for break statements
+        llvm::BasicBlock * last_exit = m_last_exit;
+        m_last_exit = merge_block;
         //create insert
         m_builder.CreateBr(loop_block);
         m_builder.SetInsertPoint(loop_block);
         //make body
         statement->m_body->accept(this);
+        //reset exit point
+        m_last_exit = last_exit;
         //get condition
         llvm::Value *condition = std::get<llvm::Value *>(eval(statement->m_condition));
         //merge
-        llvm::BasicBlock *merge_block =llvm::BasicBlock::Create(m_context, "after_loop", parent);
+
         m_builder.CreateCondBr(condition, loop_block, merge_block);
         m_builder.SetInsertPoint(merge_block);
 
@@ -318,7 +324,10 @@ public:
         //make body
         statement->m_then_branch->accept(this);
         //create else insert point
-        m_builder.CreateBr(merge_block);
+        if(!m_builder.GetInsertPoint()->getPrevNonDebugInstruction()->isTerminator()){
+            m_builder.CreateBr(merge_block);
+        }
+
         parent->getBasicBlockList().push_back(else_block);
         m_builder.SetInsertPoint(else_block);
         //make else body
@@ -326,7 +335,9 @@ public:
             statement->m_else_branch->accept(this);
         }
         //create merge
-        m_builder.CreateBr(merge_block);
+        if(!m_builder.GetInsertPoint()->getPrevNonDebugInstruction()->isTerminator()) {
+            m_builder.CreateBr(merge_block);
+        }
         parent->getBasicBlockList().push_back(merge_block);
         m_builder.SetInsertPoint(merge_block);
 
@@ -436,7 +447,14 @@ public:
     }
     //did return just happen
     bool m_returned = false;
+
     object visitReturnStatement(ReturnStatement *statement) {
+        if(statement->m_keyword.original == "break" ){
+
+            m_builder.CreateBr(m_last_exit);
+            return null_object();
+        }
+
         //destructors
         destruct();
         if (statement->m_value != nullptr) {
@@ -1007,7 +1025,8 @@ private:
     std::vector<std::string> externals;
     //filename of output
     std::string m_object_filename = "output.o";
-
+    //last exit point for loops
+    llvm::BasicBlock* m_last_exit;
     //current environment
     Environment *m_environment;
     //top level environment
