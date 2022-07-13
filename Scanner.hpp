@@ -85,7 +85,7 @@ public:
 
 enum TokenType {
     //single tokens
-    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,LEFT_BRACKET,RIGHT_BRACKET,TEMPLATE,USE,DESTRUCT,
+    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,LEFT_BRACKET,RIGHT_BRACKET,TEMPLATE,USE,DESTRUCT,NULLPTR,ARRAY,LOCALARRAY,
     COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR,
     //two char tokens
     BANG, BANG_EQUAL,
@@ -141,7 +141,9 @@ public:
         m_keywords[ "for" ] = FOR;
         m_keywords[ "function" ] = VAR;
         m_keywords[ "if" ] = IF;
-        m_keywords[ "null_object" ] = NIL;
+        m_keywords[ "null" ] = NULLPTR;
+        m_keywords[ "array" ] = ARRAY;
+        m_keywords[ "local_array" ] = ARRAY;
         m_keywords[ "or" ] = OR;
         m_keywords[ "while" ] = WHILE;
         m_keywords[ "include" ] = INCLUDE;

@@ -13,6 +13,10 @@ public:
     std::map<std::string,statementList> m_external_files;
     //run the Analyzer. return true if ok.
     bool check(statementList statements, std::map<std::string,statementList> external_files,ErrorHandler* error_handler, std::string file) {
+
+
+
+
         //setup error handler
         m_error_handler = error_handler;
         m_error_handler->m_name = "Analyzer";
@@ -20,6 +24,7 @@ public:
         m_error_handler->m_file = file;
         //set up main env
         m_environment = new Environment();
+
         m_top = m_environment;
         m_names.push_back(file);
         //run each statement
@@ -189,9 +194,7 @@ public:
     //expressions
     object visitCallExpression(Call* expression) {
         std::string callee = evalS(expression->m_callee);
-        if(callee == "array" || callee == "local_array"){
-            return evalS(expression->m_arguments[0])+"_ptr";
-        }
+
         object callee_obj = m_environment->getValue(callee);
 
 
@@ -303,11 +306,7 @@ public:
     }
 
     object visitVariableExpression(Variable* expression) {
-        if(expression->m_name.original == "array"){
-            return std::string ("array");
-        }else if(expression->m_name.original == "local_array"){
-            return std::string ("local_array");
-        }
+
 
 
         object value = m_environment->getValue(expression->m_name.original);
@@ -399,64 +398,70 @@ public:
         std::string left = evalS(expression->m_left);
         switch (expression->m_operator_.type) {
             case BANG_EQUAL:
+                if(left.find("_ptr") != std::string::npos && right.find("_ptr") != std::string::npos){
+                    return (std::string)"bool";
+                }
                 if(left == "bool" && right == "bool"){
                     return std::string("bool");
                 }
                 if(left == "float" && right == "float"){
-                    return (std::string)"float";
+                    return (std::string)"bool";
                 }
                 if(left == "int" && right == "int"){
-                    return std::string("int");
+                    return std::string("bool");
                 } else{
                     return checkOperator(left,right, "bangEqual");
                 }
 
             case EQUAL_EQUAL:
+                if(left.find("_ptr") != std::string::npos && right.find("_ptr") != std::string::npos){
+                    return (std::string)"bool";
+                }
                 if(left == "bool" && right == "bool"){
                     return (std::string)"bool";
                 }
                 if(left == "float" && right == "float"){
                     m_error_handler->warning(expression->m_line,"Comparing two floats directly is unreliable.");
-                    return (std::string)"float";
+                    return (std::string)"bool";
                 }
                 if(left == "int" && right == "int"){
-                    return (std::string)"int";
+                    return (std::string)"bool";
                 } else{
                     return checkOperator(left,right, "equalEqual");
                 }
             case GREATER:
                 if(left == "float" && right == "float"){
-                    return (std::string)"float";
+                    return (std::string)"bool";
                 }
-                if(left == "int" && right == "int"){
+                if(left == "int" && right == "bool"){
                     return (std::string)"int";
                 } else{
                     return checkOperator(left,right, "greater");
                 }
             case GREATER_EQUAL:
                 if(left == "float" && right == "float"){
-                    return (std::string)"float";
+                    return (std::string)"bool";
                 }
                 if(left == "int" && right == "int"){
-                    return (std::string)"int";
+                    return (std::string)"bool";
                 } else{
                     return checkOperator(left,right, "greaterEqual");
                 }
             case LESS:
                 if(left == "float" && right == "float"){
-                    return (std::string)"float";
+                    return (std::string)"bool";
                 }
                 if(left == "int" && right == "int"){
-                    return (std::string)"int";
+                    return (std::string)"bool";
                 } else{
                     return checkOperator(left,right, "less");
                 }
             case LESS_EQUAL:
                 if(left == "float" && right == "float"){
-                    return (std::string)"float";
+                    return (std::string)"bool";
                 }
                 if(left == "int" && right == "int"){
-                    return std::string("int");
+                    return std::string("bool");
                 } else{
                     return checkOperator(left,right, "lessEqual");
                 }
@@ -501,10 +506,20 @@ public:
         m_error_handler->error(expression->m_line,"Not a binary type for: " + expression->m_operator_.original);
         return std::string("null");
     };
+    object visitTypeExpression(TypeExpression *expression) {
+        if(expression->m_operation == NULLPTR){
+            return expression->m_type.original + "_ptr";
+        }
+        if(expression->m_operation == ARRAY || expression->m_operation == LOCALARRAY){
+            return expression->m_type.original+"_ptr";
+        }
+
+    }
     object visitGroupingExpression(Grouping* expression){
         return evalS(expression->m_expression);
     };
     object visitLiteralExpression(Literal* expression){
+
         if(int* number =std::get_if<int>(& expression->m_value)){ return std::string ("int");}
         if(float* number =std::get_if<float>(& expression->m_value)){ return (std::string)"float";}
         if(bool* boolean =std::get_if<bool>(& expression->m_value)){ return (std::string)"bool";}

@@ -61,8 +61,8 @@ type_ptr m_array;
 
 void Arr(int length){
 m_length = length;
-type t = type();
-m_array = array(t, m_length);
+
+m_array = array type m_length;
 }
 type brackets(int i){
 return m_array[i];

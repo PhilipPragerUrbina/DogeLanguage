@@ -623,36 +623,10 @@ public:
 
         // Look up the name in the global module table.
         Callable callee = std::get<Callable>(callee_temp);
-        //check for built in array function
-        if(callee.name == "array" || callee.name == "local_array"){
-            if(expression->m_arguments.size() != 2){  m_error_handler->error(expression->m_line, "Array takes 2 arguments");return null_object();}
-            //get type
-            llvm::Value *variable = arguments[0];
-            //get array size
-            llvm::Value* array_size = arguments[1];
-            if(array_size->getType() != llvm::Type::getInt32Ty(m_context)){m_error_handler->error(expression->m_line, "Array need int size");return null_object();}
 
-            //allocate
-            llvm::Instruction* to_return;
-            if(callee.name == "local_array"){
 
-                to_return =  m_builder.CreateAlloca(variable->getType(), array_size);
-            }else{
-                //get size
-                llvm::Constant* AllocSize =   llvm::ConstantExpr::getSizeOf(variable->getType());
-                AllocSize = llvm::ConstantExpr::getTruncOrBitCast(AllocSize, llvm::Type::getInt32Ty(m_context));
-                //temporary instruction to trick the evil llvm into  thinking its putting its stuff before
-                llvm::Instruction* to_move =  m_builder.CreateAlloca(variable->getType(), array_size);
-                to_return = llvm::CallInst::CreateMalloc(m_builder.GetInsertPoint()->getPrevNode(),llvm::Type::getInt32Ty(m_context),variable->getType(), AllocSize,
-                                                         array_size, nullptr);
-                //remove temporary instruction
-                to_move->eraseFromParent();
 
-            }
-            m_builder.CreateStore(variable,(llvm::Value*)to_return);
 
-            return  (llvm::Value*)to_return;
-        }
 
         std::string name = callee.name + overload;
 
@@ -677,12 +651,7 @@ public:
     }
     //add this to expression and see if it works. Otherwise, just normally search for variable.
     object visitVariableExpression(Variable *expression) {
-        //check for special fucntions
-        if(expression->m_name.original == "array"){
-            return Callable("array" );
-        }else if(expression->m_name.original == "local_array"){
-            return Callable("local_array" );
-        }
+
         //check if a member variable matches
         object this_object = m_environment->getValue("this");
         //does this function have a this
@@ -818,7 +787,37 @@ if(expression->m_type != DESTRUCT){
 
         return null_object() ;
     }
+object visitTypeExpression(TypeExpression *expression) {
+        if(expression->m_operation == NULLPTR){
+            return llvm::ConstantPointerNull::get(llvm::PointerType::get(getType(expression->m_type.original),0));
+        }
+    //array expression
+    if(expression->m_operation == ARRAY || expression->m_operation == LOCALARRAY){
+        //get type
+        llvm::Type *type = getType(expression->m_type);
+        //get array size
+        llvm::Value* array_size = std::get<llvm::Value *>(eval(expression->m_value));
+        if(array_size->getType() != llvm::Type::getInt32Ty(m_context)){m_error_handler->error(expression->m_line, "Array need int size");return null_object();}
+        //allocate
+        llvm::Instruction* to_return;
+        if(expression->m_operation == LOCALARRAY){
+            to_return =  m_builder.CreateAlloca(type, array_size);
+        }else{
+            //get size
+            llvm::Constant* AllocSize =   llvm::ConstantExpr::getSizeOf(type);
+            AllocSize = llvm::ConstantExpr::getTruncOrBitCast(AllocSize, llvm::Type::getInt32Ty(m_context));
+            //temporary instruction to trick the evil llvm into  thinking its putting its stuff before
+            llvm::Instruction* to_move =  m_builder.CreateAlloca(type, array_size);
+            to_return = llvm::CallInst::CreateMalloc(m_builder.GetInsertPoint()->getPrevNode(),llvm::Type::getInt32Ty(m_context),type, AllocSize,
+                                                     array_size, nullptr);
+            //remove temporary instruction
+            to_move->eraseFromParent();
 
+        }
+        return  (llvm::Value*)to_return;
+    }
+
+    }
     object visitBracketsExpression(Brackets *expression) {
         //get values
         llvm::Value *right = std::get<llvm::Value *>(eval(expression->m_right));

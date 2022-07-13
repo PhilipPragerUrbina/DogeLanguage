@@ -135,7 +135,7 @@ private:
         if(match({VAR}) || checkClass()){return variableDeclaration(false, m_tokens[m_current-1]);}
 
         if(match({EXTERN})){   if(match({VAR})){return externDeclaration(m_tokens[m_current-1]);}}
-        if(match({CONST})){   if(match({VAR})){return variableDeclaration(true,m_tokens[m_current-1]);}}
+        if(match({CONST})){   if(match({VAR}) || checkClass()){return variableDeclaration(true,m_tokens[m_current-1]);}}
         if(match({CLASS})){
             return classDeclaration();
         }
@@ -519,7 +519,7 @@ private:
     }
 
     Expression* bracketExpression(){
-        Expression* left = primary();
+        Expression* left = nullExpression();
 
         if(match({LEFT_BRACKET})){
             Expression* inside = expression();
@@ -541,10 +541,32 @@ private:
 
         return  new Call(callee, paren, arguments, getLine());
     }
+
+
+    Expression* nullExpression(){
+        if(match({NULLPTR})){
+            match({IDENTIFIER, VAR});
+            Token type = m_tokens[m_current-1];
+            return new TypeExpression(type, NULLPTR, getLine(), nullptr);
+        }
+
+        if(match({ARRAY})){
+            match({IDENTIFIER, VAR});
+            Token type = m_tokens[m_current-1];
+            return new TypeExpression(type, ARRAY, getLine(), expression());
+        }
+        if(match({LOCALARRAY})){
+            match({IDENTIFIER, VAR});
+            Token type = m_tokens[m_current-1];
+            return new TypeExpression(type, LOCALARRAY, getLine(), expression());
+        }
+        return primary();
+    }
     Expression* primary() {
         if (match({FALSE})) return new Literal(false, getLine());
         if (match({TRUE})) return new Literal(true, getLine());
         if (match({NIL})) return new Literal(null_object(), getLine());
+
         if (match({FLOATING,INTEGER, STRING})) {
             return new Literal(m_tokens[m_current-1].value, getLine());
         }

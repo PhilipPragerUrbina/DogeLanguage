@@ -33,7 +33,7 @@ class IncludeStatement;
 class Memory;
 class Brackets;
 class EmptyStatement;
-
+class TypeExpression;
 //using visitor pattern
 class Visitor {
 public:
@@ -62,6 +62,7 @@ public:
     virtual object visitBracketsExpression(Brackets* expression){std::cout << m_visitor_name << " visitBracketsExpression " << " not implemented \n";return 0;}
     virtual object visitMemoryExpression(Memory* expression){std::cout << m_visitor_name << " visitMemoryExpression " << " not implemented \n";return 0;}
     virtual object visitEmptyStatement(EmptyStatement* statement){return 0;};
+    virtual object visitTypeExpression(TypeExpression* expression){std::cout << m_visitor_name << " visitTypeExpression " << " not implemented \n";return 0;}
 
 };
 
@@ -104,6 +105,24 @@ public:
 
     Expression* m_left;
     Expression* m_right;
+};
+
+class TypeExpression : public Expression {
+public:
+    TypeExpression(Token type,TokenType operation, int line, Expression* value) {
+      m_type = type;
+        m_line = line;
+        m_value = value;
+        m_operation = operation;
+    }
+
+    object accept(Visitor* visitor) {
+        return visitor->visitTypeExpression(this);
+    }
+TokenType m_operation;
+Expression* m_value;
+    Token m_type;
+
 };
 
 class Call : public Expression {
