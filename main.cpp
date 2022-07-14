@@ -218,12 +218,14 @@ std::vector<ClassStatement*>* templates_to_resolve) {//get included files
         std::string link_directory = "";
         if (!file->read()) {
             delete file;
-            //check in exe directory
-            File* new_file = new File(getExeDirectory("libraries/" + import+".dogel"));
+            //check library directories by the doge executable
+            //directory is the libraries' directory in a folder of the name of the library
+            std::string directory_name = "libraries/" + import + "/";
+            File* new_file = new File(getExeDirectory(directory_name + import+".dogel"));
             if(!new_file->read()){
                 return false;
             }
-            link_directory = getExeDirectory("libraries/");
+            link_directory = getExeDirectory(directory_name);
             file = new_file;
         }
         //check for changes
