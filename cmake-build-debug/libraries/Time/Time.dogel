@@ -1,3 +1,10 @@
-#link "Chrono_bindings.cpp";
+#import SL;
+#link "time_bindings.cpp";
 
 extern void delay(int time);
+extern int getTimeSeconds();
+extern chars getDateChars();
+
+string getDate(){
+    return string(getDateChars());
+}

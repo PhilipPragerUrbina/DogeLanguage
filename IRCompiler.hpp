@@ -39,6 +39,7 @@ class IRCompiler : public Visitor {
 public:
     //keep track of file names for errors
     std::vector<std::string> m_names;
+    std::vector<std::string> m_compiled_files;
     //run the interpreter
     void compile(const statementList& statements, std::map<std::string,statementList> external_files, ErrorHandler *error_handler, const std::string& file) {
         //setup error handler
@@ -194,6 +195,11 @@ public:
 
     //import code from other files
     object visitImportStatement(ImportStatement *statement) {
+        //make sure we dont recompile files
+        if(std::count(m_compiled_files.begin(), m_compiled_files.end(), statement->m_name.original)){
+            return null_object();
+        }
+        m_compiled_files.push_back(statement->m_name.original);
         statementList statements = m_external_files[statement->m_name.original];
         m_names.push_back(statement->m_name.original);
         m_error_handler->m_file = m_names.back();
@@ -206,6 +212,11 @@ public:
         return null_object();
     }
     object visitIncludeStatement(IncludeStatement *statement) {
+        //make sure we dont recompile files
+        if(std::count(m_compiled_files.begin(), m_compiled_files.end(), statement->m_name.original)){
+            return null_object();
+        }
+        m_compiled_files.push_back(statement->m_name.original);
         if(statement->m_link){
             //set .o or .cpp files to be linked when made executable
             externals.push_back(std::get<std::string>(statement->m_name.value));
