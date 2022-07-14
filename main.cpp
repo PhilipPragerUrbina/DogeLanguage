@@ -1,5 +1,5 @@
 //define language version
-#define DOGE_LANGUAGE_VERSION "v0.78"
+#define DOGE_LANGUAGE_VERSION "v1.0"
 
 
 
@@ -219,11 +219,11 @@ std::vector<ClassStatement*>* templates_to_resolve) {//get included files
         if (!file->read()) {
             delete file;
             //check in exe directory
-            File* new_file = new File(getExeDirectory(import+".dogel"));
+            File* new_file = new File(getExeDirectory("libraries/" + import+".dogel"));
             if(!new_file->read()){
                 return false;
             }
-            link_directory = getExeDirectory("");
+            link_directory = getExeDirectory("libraries/");
             file = new_file;
         }
         //check for changes

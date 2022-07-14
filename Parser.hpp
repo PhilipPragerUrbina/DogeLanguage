@@ -172,6 +172,9 @@ private:
         else if(match({INCLUDE})){
             Token directory = consume(STRING, "Expected include directory.");
             consume(SEMICOLON, "Expected ; after include.");
+            if(link_directory != ""){
+                directory .value = link_directory + "/" + std::get<std::string>(directory.value);
+            }
             m_includes.push_back(std::get<std::string>(directory.value));
             return new IncludeStatement(directory, getLine(),false);
         }  else if(match({LINK})){

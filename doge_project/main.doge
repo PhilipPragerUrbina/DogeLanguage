@@ -1,79 +1,15 @@
 
 #import SL;
-class test2{
-void test2(){
-print("test2 is constructed");
-}
-void destruct(){
-print("test2 is destructed");
-}
-
-
-}
-
-
-
-class test{
-test2 whoo;
-void test(){
-print("test is constructed");
-}
-void destruct(){
-print("test is destructed");
-}
-
-
-}
-
-use Arr as list using int;
+#import Time;
 //main function
 int main(){
-
-test_ptr n = null test;
-if(n != null test){
-print("wheeee");
-return 1;
-}
-
-list things = list(10);
-things.fill(69);
-for(int z = 0; z < 20; z++){
-print("\n start 1 \n");
-for(int x = 0; x < 20; x++){
-
-for(int y = 0; y < 10; y++){
-
-if(y == x){
-print("% ");
-break;
-
-}else{
-print("* ");
-}
-
-}
-if(x == 10){
-break;
-}
-print("\n");
-}
-
-print("\n wheeee whee \n");
-if(z == 3){
-print("\n heeeee \n");
-break;
-} else if(z == 2){
-print("\n hohohoh \n");
-if(n == null test){
-print("\n sus \n");
-break;
-}
-}
-print("\n Amogus \n");
-}
-
-
-
+print("sus \n");
+delay(400);
+print("sus \n");
+delay(400);
+print("sus \n");
+delay(400);
+delay(100);
+print("Amogus \n");
 return 0;
-
 }

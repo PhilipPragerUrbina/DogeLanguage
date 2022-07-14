@@ -1,0 +1,3 @@
+#link "Chrono_bindings.cpp";
+
+extern void delay(int time);

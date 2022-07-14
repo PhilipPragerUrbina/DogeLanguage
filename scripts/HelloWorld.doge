@@ -1,0 +1,8 @@
+
+#import SL;
+
+//main function
+int main(){
+print("Such Hello World!");
+return 0;
+}
