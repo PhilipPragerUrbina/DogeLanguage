@@ -397,9 +397,15 @@ public:
             llvm::Type *class_type = std::get<llvm::Type *>(m_environment->getValue(statement->m_class_name + "_class"));
             types.push_back(llvm::PointerType::get(class_type, 0));
         }
+        llvm::Type* function_return_type =getType(statement->m_type);
+        //define function type
+        if(function_return_type->isStructTy()){
+            m_environment->define(statement->m_name.original+"_type" , function_return_type->getStructName().str()+"_class");
+        }
+
 
         //create function
-        llvm::FunctionType *function_type = llvm::FunctionType::get(getType(statement->m_type), types, false);
+        llvm::FunctionType *function_type = llvm::FunctionType::get(function_return_type, types, false);
         function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, name, m_module);
 
         //set names
@@ -676,7 +682,16 @@ public:
                                    std::to_string(expression->m_arguments.size()));
             return null_object();
         }
-        return (llvm::Value *) m_builder.CreateCall(callee_function, arguments);
+
+        llvm::Value* out = (llvm::Value *) m_builder.CreateCall(callee_function, arguments);
+        if(out->getType()->isStructTy() ){
+        //get pointer to return value using temporary variable
+        //for calling stuff directly on return value objects
+        m_last_pointer =  m_builder.CreateAlloca(out->getType());
+        m_builder.CreateStore(out,m_last_pointer);
+            m_last_class = m_last_pointer;
+        }
+        return out;
     }
     //add this to expression and see if it works. Otherwise, just normally search for variable.
     object visitVariableExpression(Variable *expression) {
