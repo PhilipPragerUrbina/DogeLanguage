@@ -11,7 +11,7 @@ print("sus \n");
 delay(400);
 delay(100);
 print("Amogus \n");
-print(getDate());
+getDate().print();
 print(getTimeSeconds());
 return 0;
 }
