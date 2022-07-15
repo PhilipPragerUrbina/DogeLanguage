@@ -229,7 +229,6 @@ std::vector<ClassStatement*>* templates_to_resolve) {//get included files
             file = new_file;
         }
         //check for changes
-        //check for changes
         auto include_modify_time = last_write_time(std::filesystem::path(  file->getName()));
         if (source_modify_time < include_modify_time) {
             source_modify_time = include_modify_time;
@@ -247,26 +246,3 @@ std::vector<ClassStatement*>* templates_to_resolve) {//get included files
     }
     return true;
 }
-/*
-//generate graph vis  file of code
-DotFileGenerator graph;
-graph.print(statements);
-*/
-/*
-    //interpret
-    Interpreter runtime;
-
-    //output
-    std::cout << "\n build: \n \n" ;
-
-    std::string out = runtime.run(statements,&error_handler);
-
-      //check for errors
-    if(error_handler.hasErrors()){
-        return 1;
-    }
-
-      Color::start(GREEN);
-    std::cout<<"\n \n Exited with: " << out << " \n";
-    Color::end();
-*/

@@ -2,6 +2,7 @@
 #include <thread>
 #include <iostream>
 #include <ctime>
+#pragma warning(disable : 4996)
 //delay in milliseconds
 extern "C"  void delay_int(int time) {
     using namespace std::this_thread;
