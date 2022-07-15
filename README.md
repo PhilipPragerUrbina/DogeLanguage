@@ -1,8 +1,12 @@
 # DogeLanguage
-WIP Doge programming language. 
+A very cool compiled language.
 
-Parser is based on Lox.
+The language of Doges.
 
-Compiles to machine code.
+Very similar in syntax to C++.
+
+Very similar to Rust in it's pipeline as it uses LLVM as a backend.
+
+The Parser is based on Lox.
 
 Requires llvm installed to build.
