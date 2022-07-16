@@ -1,10 +1,12 @@
 //link cpp file
 #link "SL.cpp";
+
 //externals
 //input
 extern chars charsIn();
 //output
 extern void printChars(chars a);
+extern chars getChar(chars in, int idx);
 //conversions
 extern chars toChars(float a);
 extern chars toChars(int a);
@@ -13,7 +15,7 @@ extern int toInt(float a);
 //utilities
 extern chars concat(chars a,chars b);
 extern float power(float base, float exp);
-
+extern float random();
 //string class
 class string{
     //char data
@@ -22,6 +24,15 @@ class string{
     void string(chars c){m_chars = c;}
     void string(int i){m_chars = toChars(i);}
     void string(float f){m_chars = toChars(f);}
+    void string(bool b){
+        if(b){
+            m_chars = "true";
+        }else{
+            m_chars = "false";
+        }
+    }
+    void string(){m_chars = "";  }
+
     //overloading
     string plus(chars c){
         return string(concat(m_chars,c));
@@ -31,6 +42,9 @@ class string{
     }
     void print(){
         printChars(m_chars);
+    }
+    string brackets(int i){
+        return string(getChar(m_chars, i));
     }
 
 
@@ -51,33 +65,4 @@ void print(string s){
     s.print();
 }
 
-float floatIn(){
-    return toFloat(charsIn());
-}
-
-class template Arr{
-int m_length = 0;
-type_ptr m_array;
-
-void Arr(int length){
-m_length = length;
-
-m_array = array type m_length;
-}
-type brackets(int i){
-return m_array[i];
-}
-void fill(type init){
-for(int i = 0; i < m_length; i++){
-m_array[i] = init;
-}
-}
-
-void destruct(){
-
-delete m_array;
-}
-
-
-}
 

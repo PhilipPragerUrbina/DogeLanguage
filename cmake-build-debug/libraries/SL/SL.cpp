@@ -13,7 +13,12 @@ extern "C"  const char* charsIn() {
 extern "C"  void printChars_chars(char* chars) {
     std::cout <<chars;
 }
-
+extern "C"  const char* getChar_chars_int(char* chars, int idx) {
+    std::string s =    std::string(chars);
+    std::string* out =   new std::string();
+    out->push_back(s.at(idx));
+    return out->data();
+}
 
 //conversions
 extern "C"  const char* toChars_float(float a) {
@@ -42,5 +47,9 @@ extern "C"  const char* concat_chars_chars(char* a,char* b) {
 //power of
 extern "C"  float power_float_float(float a, float b) {
     return std::pow(a,b);
+}
+//rand
+extern "C"  float random() {
+    return rand();
 }
 

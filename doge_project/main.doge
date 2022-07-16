@@ -1,17 +1,31 @@
 
 #import SL;
 #import Time;
+
+
+
+
 //main function
 int main(){
+print(random());
+int before = getTimeSeconds();
+for(int i = 0; i < 3; i++){
 print("sus \n");
 delay(400);
-print("sus \n");
-delay(400);
-print("sus \n");
-delay(400);
+}
+
 delay(100);
 print("Amogus \n");
+delay(400);
 getDate().print();
-print(getTimeSeconds());
+delay(400);
+
+delay(400);
+int after = getTimeSeconds();
+
+print(string("\n Time: ") + string(after - before) + " seconds \n");
+
+string n = string("abcdefg");
+print((n[2]));
 return 0;
 }

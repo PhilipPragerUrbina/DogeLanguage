@@ -1,0 +1,40 @@
+#import SL;
+
+//Array wrapper class
+class template Array{
+//members
+int m_length = 0;
+type_ptr m_array;
+
+//constructor
+void Array(int length){
+    //set length
+    m_length = length;
+    //create heap array
+    m_array = array type m_length;
+}
+//getter
+type brackets(int i){
+return m_array[i];
+}
+//setter
+void set(int idx, type a){
+m_array[idx] = a;
+}
+//fill by copying
+void fill(type init){
+for(int i = 0; i < m_length; i++){
+m_array[i] = init;
+}
+}
+
+//call destructor of all elements
+void destruct(){
+
+destroy m_array;
+}
+
+
+}
+
+

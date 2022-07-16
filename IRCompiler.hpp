@@ -818,16 +818,12 @@ public:
         }
         //must be a delete
         //call destructor
-        destruct((llvm::AllocaInst*)variable);
-
-if(expression->m_type != DESTRUCT){
+        if(expression->m_type != DESTRUCT){
+            destruct((llvm::AllocaInst *) variable);
+        }
     llvm::Instruction* free = llvm::CallInst::CreateFree(variable,m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
     //move to correct spot, curse you llvm
     free->moveAfter(m_builder.GetInsertPoint()->getPrevNonDebugInstruction());
-}
-
-
-
 
         return null_object() ;
     }
