@@ -1,0 +1,12 @@
+#import SL;
+#link "Sys_bindings.cpp";
+
+extern int runSystem(chars command);
+
+//run a system command
+int console(string command){
+    return runSystem(command.m_chars);
+}
+int console(chars command){
+    return runSystem(command);
+}
