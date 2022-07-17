@@ -1,0 +1,22 @@
+#import SL;
+//calculate fibonacci sequence
+float fib(float n) {
+  if (n < 2) {
+  return n;
+  }
+  return fib(n - 1) + fib(n - 2);
+}
+
+//main function
+int main(){
+
+    //get input
+    print("Enter number: \n ");
+    float a = toFloat( charsIn());
+    //calculate
+    float out = fib(a);
+    print("\n Done:");
+    //output
+    print(out);
+    return 0;
+}
