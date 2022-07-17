@@ -4,9 +4,10 @@
 // standard library externals
 //get char string input
 extern "C"  const char* charsIn() {
-    char* in;
+    std::string in;
     std::cin >> in;
-    return in;
+    std::string* out =   new std::string(in);
+    return out->data();
 }
 
 //output
