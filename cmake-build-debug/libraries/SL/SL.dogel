@@ -16,6 +16,8 @@ extern int toInt(float a);
 extern chars concat(chars a,chars b);
 extern float power(float base, float exp);
 extern float random();
+extern float random(int seed);
+
 //string class
 class string{
     //char data

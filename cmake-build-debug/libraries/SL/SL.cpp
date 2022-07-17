@@ -50,6 +50,12 @@ extern "C"  float power_float_float(float a, float b) {
 }
 //rand
 extern "C"  float random() {
-    return rand();
+    return (float) rand()/RAND_MAX;
 }
+//rand seed
+extern "C"  float random_int(int seed) {
+    srand(seed);
+    return (float) rand()/RAND_MAX;
+}
+
 

@@ -33,8 +33,6 @@ void destruct(){
 
 destroy m_array;
 }
-
-
 }
 
 

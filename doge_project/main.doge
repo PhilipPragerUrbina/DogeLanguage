@@ -8,6 +8,13 @@
 //main function
 int main(){
 print(random());
+print("sus \n");
+print(random());
+print("sus \n");
+print(random(1));
+print("sus \n");
+print(random(1));
+print("sus \n");
 int before = getTimeSeconds();
 for(int i = 0; i < 3; i++){
 print("sus \n");
@@ -25,7 +32,5 @@ int after = getTimeSeconds();
 
 print(string("\n Time: ") + string(after - before) + " seconds \n");
 
-string n = string("abcdefg");
-print((n[2]));
 return 0;
 }
