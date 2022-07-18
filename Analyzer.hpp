@@ -83,7 +83,7 @@ public:
         return std::string("null");
     }
     object visitFunctionStatement(FunctionStatement *statement) {
-        Callable function =  Callable(statement->m_parameters.size(), nullptr,statement);
+        Callable function =  Callable(statement->m_parameters.size(),statement);
         std::string overload = "";
         for (int i = 0; i < statement->m_parameters.size(); i++) {
             overload = overload + "_" + statement->m_parameters[i]->m_type.original;

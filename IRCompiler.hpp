@@ -371,7 +371,7 @@ public:
 
 
         //create callable and define
-        Callable callable = Callable(size, nullptr, statement);
+        Callable callable = Callable(size, statement);
         callable.name = name;
         callable.m_class = statement->m_class_name;
         m_environment->define(name, callable);

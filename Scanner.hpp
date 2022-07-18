@@ -16,58 +16,14 @@
 struct null_object{};
 
 //forward declarations
-class Callable;
-class Interpreter;
 class Environment;
-//Pointer type
-struct Reference{
-    Reference(std::string name, Environment* env){
-        m_name = name   ;
-        m_env = env;
-
-    }
-    Environment* m_env = nullptr;
-    std::string m_name;
-};
-
-struct Class {
-public:
-    Class(std::string name = "",Environment* environment = nullptr){
-        m_name = name;
-        m_environment = environment;
-
-    }
-    std::string m_name;
-    Environment* m_environment;
-};
-struct ClassObject {
-public:
-    ClassObject(Class class_, Environment* environment = nullptr){
-        m_class = class_;
-        m_environment = environment;
-    }
-    Class m_class;
-    Environment* m_environment;
-};
-struct Signal{
-    Signal(int signal){
-        m_signal = signal;
-    }
-    int m_signal;
-};
-
-//generic object with all supported types
-typedef std::variant<int, float, std::string, bool, null_object, Callable,Reference,Class, ClassObject, Signal, llvm::Value*, llvm::Function*, llvm::AllocaInst*, llvm::Type*> object;
-
-//function pointer
-typedef object (*callPointer)( Interpreter* ,std::vector<object>);
 class FunctionStatement;
 
 //function type
 struct Callable {
 public:
-    Callable(int args, callPointer func,  FunctionStatement* declaration = nullptr){
-        m_argument_number = args; m_call = func;
+    Callable(int args,  FunctionStatement* declaration = nullptr){
+        m_argument_number = args;
         m_declaration = declaration;
     }
     Callable(std::string n){
@@ -77,8 +33,21 @@ public:
     std::string m_class = "";
     FunctionStatement* m_declaration;
     int m_argument_number;
-    callPointer m_call;
 };
+//class type
+struct Class {
+public:
+    Class(std::string name = "",Environment* environment = nullptr){
+        m_name = name;
+        m_environment = environment;
+    }
+    std::string m_name;
+    Environment* m_environment;
+};
+
+//generic object with all supported types
+typedef std::variant<int, float, std::string, bool, null_object, Callable,Class, llvm::Value*, llvm::AllocaInst*, llvm::Type*> object;
+
 
 
 
