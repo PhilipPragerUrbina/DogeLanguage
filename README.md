@@ -1,6 +1,8 @@
 # DogeLanguage
 A very cool compiled language.
 
+Full Docs in the WIKI!
+
 The language of Doges.
 
 Very similar in syntax to C++.
